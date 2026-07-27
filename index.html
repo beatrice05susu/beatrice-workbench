@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Beatrice 的工作台</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#5a8f4c">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Beatrice">
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #5a8f4c;
+            --primary-light: #e8f5e4;
+            --primary-dark: #4a7a3e;
+            --bg: #f5f5f5;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --text-secondary: #666666;
+            --border: #e8e8e8;
+            --success: #7cb342;
+            --danger: #e57373;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .app { display: flex; height: 100vh; }
+
+        /* ===== 侧边栏 ===== */
+        .sidebar {
+            width: 280px; background: var(--sidebar-bg); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; box-shadow: var(--shadow); z-index: 10;
+        }
+        .sidebar-header { padding: 24px 20px 16px; border-bottom: 1px solid var(--border); }
+        .user-name { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
+        .workspace-title { font-size: 20px; font-weight: 700; }
+        .workspace-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        .nav-menu { flex: 1; padding: 16px 12px; overflow-y: auto; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 8px;
+            border-radius: 12px; cursor: pointer; transition: all 0.2s ease; color: var(--text);
+        }
+        .nav-item:hover { background: var(--primary-light); }
+        .nav-item.active { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(90,143,76,0.3); }
+        .nav-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .nav-text { font-size: 15px; font-weight: 500; }
+        .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+
+        /* 云同步面板 */
+        .sync-panel { font-size: 12px; }
+        .sync-status { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: var(--text-secondary); }
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+        .sync-dot.on { background: var(--success); }
+        .sync-btn {
+            width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 8px;
+            background: white; font-size: 12px; cursor: pointer; margin-bottom: 6px; color: var(--text);
+        }
+        .sync-btn:hover { border-color: var(--primary); background: var(--primary-light); }
+        .sync-code-box {
+            display: flex; gap: 4px; align-items: center; background: #f5f5f5; border-radius: 8px; padding: 6px 8px;
+        }
+        .sync-code-box code { font-size: 11px; color: var(--text-secondary); flex: 1; word-break: break-all; }
+        .sync-code-box button { border: none; background: none; cursor: pointer; font-size: 12px; color: var(--primary); }
+        .sync-time { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+        .data-actions { display: flex; gap: 6px; margin-top: 8px; }
+        .data-actions button { flex: 1; padding: 6px; font-size: 11px; border: 1px solid var(--border); border-radius: 6px; background: white; cursor: pointer; }
+        .data-actions button:hover { border-color: var(--primary); background: var(--primary-light); }
+
+        /* ===== 主内容区 ===== */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .main-header {
+            background: var(--card-bg); padding: 20px 32px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .page-title { font-size: 22px; font-weight: 700; }
+        .page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+        .date-display { font-size: 14px; color: var(--text-secondary); background: var(--primary-light); padding: 8px 16px; border-radius: 20px; }
+        .main-content { flex: 1; padding: 24px 32px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .content-section { display: none; animation: fadeIn 0.3s ease; }
+        .content-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== 卡片 ===== */
+        .card { background: var(--card-bg); border-radius: 16px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .card-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+        /* ===== 进度条 ===== */
+        .progress-section { display: flex; align-items: center; gap: 20px; margin-bottom: 8px; }
+        .progress-ring { position: relative; width: 100px; height: 100px; }
+        .progress-ring svg { transform: rotate(-90deg); }
+        .progress-ring-bg { fill: none; stroke: #e8e8e8; stroke-width: 8; }
+        .progress-ring-fill { fill: none; stroke: var(--primary); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+        .progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; font-weight: 700; color: var(--primary); }
+        .progress-info h3 { font-size: 18px; margin-bottom: 6px; }
+        .progress-info p { font-size: 13px; color: var(--text-secondary); }
+
+        /* ===== 周计划 ===== */
+        .week-tasks { display: flex; flex-direction: column; gap: 14px; }
+        .week-task { background: #fafafa; border-radius: 14px; padding: 18px 20px; border: 2px solid transparent; transition: all 0.2s ease; }
+        .week-task:hover { border-color: var(--primary-light); background: #f5f9f4; }
+        .week-task-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .week-task-left { display: flex; align-items: center; gap: 10px; }
+        .week-task-name { font-size: 15px; font-weight: 600; }
+        .week-task-note { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .week-task-delete { width: 30px; height: 30px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+        .week-task-delete:hover { background: #ffebee; color: var(--danger); }
+        .day-row { display: flex; gap: 6px; }
+        .day-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .day-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+        .day-check { width: 100%; height: 36px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; background: white; font-size: 16px; }
+        .day-check:hover { border-color: var(--primary); background: var(--primary-light); }
+        .day-check.checked { background: var(--primary); border-color: var(--primary); color: white; }
+        .day-check.checked::after { content: "✓"; font-size: 16px; font-weight: 700; }
+        .week-task-progress { margin-top: 10px; font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
+        .mini-bar { flex: 1; height: 4px; background: #e8e8e8; border-radius: 2px; overflow: hidden; }
+        .mini-bar-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s ease; }
+        .add-task { display: flex; gap: 10px; margin-top: 16px; }
+        .add-task input { flex: 1; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; outline: none; }
+        .add-task input:focus { border-color: var(--primary); }
+        .add-task select { padding: 14px 12px; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; cursor: pointer; background: white; }
+        .add-task button { padding: 14px 24px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .add-task button:hover { background: var(--primary-dark); }
+
+        /* ===== 标签 ===== */
+        .tag { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+        .tag-sport { background: #e3f2fd; color: #1976d2; }
+        .tag-study { background: #fff3e0; color: #f57c00; }
+        .tag-health { background: #f3e5f5; color: #7b1fa2; }
+        .tag-work { background: #e8f5e9; color: #388e3c; }
+        .freq-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--primary-light); color: var(--primary-dark); }
+
+        /* ===== 抖音热点 ===== */
+        .hot-search-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .hot-card { background: #fafafa; border-radius: 12px; padding: 16px; border: 1px solid var(--border); transition: all 0.2s ease; }
+        .hot-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+        .hot-rank { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 6px; font-size: 13px; font-weight: 700; margin-right: 10px; }
+        .rank-1 { background: #ffebee; color: #c62828; }
+        .rank-2 { background: #fff3e0; color: #ef6c00; }
+        .rank-3 { background: #fffde7; color: #f9a825; }
+        .rank-other { background: #f5f5f5; color: #616161; }
+        .hot-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; }
+        .hot-meta { font-size: 12px; color: var(--text-secondary); }
+        .refresh-btn { padding: 10px 20px; background: var(--primary-light); color: var(--primary); border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 16px; }
+
+        /* ===== 团队复盘 ===== */
+        .review-month-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .review-month-bar select { padding: 10px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; background: white; cursor: pointer; font-weight: 600; }
+        .month-btn { padding: 10px 16px; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .month-btn.add { background: var(--primary); color: white; }
+        .month-btn.add:hover { background: var(--primary-dark); }
+        .month-btn.del { background: #ffebee; color: var(--danger); }
+        .month-btn.del:hover { background: #ffcdd2; }
+
+        /* 数据指标输入 */
+        .data-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+        .metric-item label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
+        .input-wrap { display: flex; align-items: center; border: 2px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color 0.2s; }
+        .input-wrap:focus-within { border-color: var(--primary); }
+        .input-wrap .prefix, .input-wrap .suffix { padding: 0 12px; color: var(--text-secondary); font-size: 14px; background: #f5f5f5; height: 44px; display: flex; align-items: center; font-weight: 500; }
+        .input-wrap input { flex: 1; border: none; padding: 12px; font-size: 14px; outline: none; width: 100%; height: 44px; font-family: inherit; }
+
+        /* TOP5表格 */
+        .top5-section { margin-bottom: 20px; }
+        .top5-section h5 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+        .top5-table { width: 100%; border-collapse: collapse; }
+        .top5-table th { text-align: left; padding: 8px 12px; font-size: 12px; color: var(--text-secondary); border-bottom: 2px solid var(--border); font-weight: 500; }
+        .top5-table th:nth-child(1) { width: 36px; text-align: center; }
+        .top5-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+        .top5-table td:first-child { text-align: center; font-weight: 700; color: var(--primary); font-size: 14px; }
+        .top5-table input { width: 100%; border: 1px solid transparent; padding: 8px 10px; border-radius: 8px; font-size: 14px; outline: none; background: #fafafa; font-family: inherit; transition: all 0.2s; }
+        .top5-table input:focus { border-color: var(--primary); background: white; }
+        .top5-rank-input { max-width: 120px; }
+        .top5-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; border: 1px solid var(--border); }
+        .top5-table.wrap-table { min-width: 700px; }
+        .top5-table.wrap-table th:nth-child(1) { width: 32px; }
+        .top5-table.wrap-table th { white-space: nowrap; }
+        .top5-table.wrap-table input { font-size: 13px; }
+        .top5-table .calc-cell { font-size: 13px; font-weight: 600; color: var(--primary); text-align: center; }
+        .top5-table .calc-cell.zero { color: var(--text-secondary); font-weight: 400; }
+
+        /* 自动汇总 */
+        .calc-summary { background: var(--primary-light); border-radius: 12px; padding: 16px 20px; }
+        .calc-summary h5 { font-size: 13px; color: var(--primary-dark); margin-bottom: 14px; font-weight: 600; }
+        .calc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .calc-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 8px; }
+        .calc-label { font-size: 12px; color: var(--text-secondary); }
+        .calc-value { font-size: 15px; font-weight: 700; color: var(--primary); }
+
+        /* 复盘文本区 */
+        .review-card { background: #fafafa; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+        .review-card h4 { font-size: 14px; margin-bottom: 12px; color: var(--primary); display: flex; align-items: center; gap: 6px; }
+        .step-num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: white; font-size: 12px; align-items: center; justify-content: center; }
+        .review-card textarea { width: 100%; min-height: 100px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 14px; resize: vertical; outline: none; font-family: inherit; transition: border-color 0.2s; }
+        .review-card textarea:focus { border-color: var(--primary); }
+
+        /* 历史对比表 */
+        .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .history-table th { text-align: right; padding: 10px 12px; color: var(--text-secondary); border-bottom: 2px solid var(--border); white-space: nowrap; font-weight: 500; }
+        .history-table th:first-child { text-align: left; }
+        .history-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+        .history-table td:first-child { text-align: left; font-weight: 600; }
+        .history-table tr:hover { background: #f9f9f9; }
+
+        .save-review { margin-top: 20px; padding: 12px 28px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .save-review:hover { background: var(--primary-dark); }
+
+        /* ===== 移动端 ===== */
+        @media (max-width: 768px) {
+            body { height: 100vh; height: 100dvh; overflow: hidden; }
+            .app { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; border-right: none; border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(0,0,0,0.06); padding: 6px 0 env(safe-area-inset-bottom, 8px); position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
+            .sidebar-header { display: none; }
+            .sidebar-footer { display: none; }
+            .nav-menu { flex: 1; display: flex; padding: 0; overflow: visible; justify-content: space-around; }
+            .nav-item { flex-direction: column; gap: 3px; margin-bottom: 0; padding: 8px 4px; border-radius: 10px; min-width: 60px; }
+            .nav-icon { font-size: 22px; }
+            .nav-text { font-size: 10px; font-weight: 500; display: block !important; }
+            .main { padding-bottom: 70px; }
+            .main-header { padding: 14px 16px; }
+            .page-title { font-size: 18px; }
+            .page-subtitle { font-size: 12px; }
+            .date-display { font-size: 11px; padding: 6px 10px; }
+            .main-content { padding: 14px; }
+            .card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
+            .card-title { font-size: 15px; margin-bottom: 12px; }
+            .progress-section { gap: 14px; }
+            .progress-ring { width: 76px; height: 76px; }
+            .progress-ring svg { width: 76px; height: 76px; }
+            .progress-text { font-size: 17px; }
+            .progress-info h3 { font-size: 15px; }
+            .week-task { padding: 14px; border-radius: 12px; }
+            .week-task-name { font-size: 14px; }
+            .week-task-note { font-size: 11px; }
+            .day-check { height: 34px; border-radius: 7px; }
+            .day-label { font-size: 10px; }
+            .add-task input { padding: 12px; font-size: 13px; }
+            .add-task select { padding: 12px 8px; font-size: 12px; max-width: 80px; }
+            .add-task button { padding: 12px 14px; font-size: 13px; white-space: nowrap; }
+            .hot-search-grid { grid-template-columns: 1fr; gap: 10px; }
+            .data-metrics { grid-template-columns: 1fr; gap: 12px; }
+            .calc-grid { grid-template-columns: 1fr; }
+            .review-card { padding: 16px; }
+            .review-card textarea { min-height: 80px; }
+            .save-review { width: 100%; padding: 14px; font-size: 15px; }
+            .top5-table input { font-size: 13px; padding: 6px 8px; }
+            .history-table { font-size: 12px; }
+            .history-table th, .history-table td { padding: 8px 6px; }
+            .review-month-bar select { font-size: 13px; padding: 8px 12px; }
+            .month-btn { padding: 8px 12px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-name">Beatrice</div>
+                <div class="workspace-title">Beatrice 的工作台</div>
+                <div class="workspace-subtitle">个人成长 × 内容创作 × 团队管理</div>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" data-section="weekly"><div class="nav-icon">📋</div><div class="nav-text">每周计划</div></div>
+                <div class="nav-item" data-section="douyin"><div class="nav-icon">🔥</div><div class="nav-text">抖音爆款热点</div></div>
+                <div class="nav-item" data-section="review"><div class="nav-icon">📊</div><div class="nav-text">团队月度复盘</div></div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="sync-panel" id="syncPanel">
+                    <div class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncText">未连接云端</span></div>
+                    <div id="syncConnected" style="display:none;">
+                        <div class="sync-code-box"><code id="syncCode">-</code><button onclick="copySyncCode()">📋</button></div>
+                        <div class="sync-time" id="syncTime"></div>
+                        <div class="data-actions">
+                            <button onclick="exportData()">📥 导出</button>
+                            <button onclick="document.getElementById('importFile').click()">📤 导入</button>
+                        </div>
+                    </div>
+                    <div id="syncDisconnected">
+                        <button class="sync-btn" onclick="createCloudSync()">☁️ 开启云同步</button>
+                        <button class="sync-btn" onclick="showConnectDialog()">🔗 连接同步码</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容 -->
+        <main class="main">
+            <header class="main-header">
+                <div>
+                    <div class="page-title" id="pageTitle">每周计划</div>
+                    <div class="page-subtitle" id="pageSubtitle">本周打卡进度，养成好习惯</div>
+                </div>
+                <div class="date-display" id="dateDisplay"></div>
+            </header>
+            <div class="main-content">
+                <!-- 每周计划 -->
+                <section class="content-section active" id="weekly">
+                    <div class="card">
+                        <div class="progress-section">
+                            <div class="progress-ring">
+                                <svg width="100" height="100">
+                                    <circle class="progress-ring-bg" cx="50" cy="50" r="42"></circle>
+                                    <circle class="progress-ring-fill" id="progressCircle" cx="50" cy="50" r="42"></circle>
+                                </svg>
+                                <div class="progress-text" id="progressText">0%</div>
+                            </div>
+                            <div class="progress-info"><h3>本周完成度</h3><p>坚持打卡，让好习惯自然发生</p></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">📝 本周任务打卡</div>
+                        <div class="week-tasks" id="weekTaskList"></div>
+                        <div class="add-task">
+                            <input type="text" id="newTaskInput" placeholder="输入新任务名称">
+                            <select id="newTaskFreq"><option value="7">每天</option><option value="2">每周2次</option><option value="3">每周3次</option><option value="1">每周1次</option><option value="5">每周5次</option></select>
+                            <button onclick="addWeekTask()">添加任务</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 抖音热点 -->
+                <section class="content-section" id="douyin">
+                    <div class="card">
+                        <div class="card-title">🔥 抖音实时热点 <span class="tag tag-work">创作灵感</span></div>
+                        <button class="refresh-btn" onclick="refreshHot()">🔄 刷新热点</button>
+                        <div class="hot-search-grid" id="hotSearchGrid"></div>
+                    </div>
+                </section>
+
+                <!-- 团队复盘 -->
+                <section class="content-section" id="review">
+                    <!-- 月份选择 -->
+                    <div class="card">
+                        <div class="review-month-bar">
+                            <select id="reviewMonthSelect" onchange="switchReviewMonth(this.value)"></select>
+                            <button class="month-btn add" onclick="addReviewMonth()">+ 添加月份</button>
+                            <button class="month-btn del" onclick="deleteReviewMonth()">删除当前月</button>
+                        </div>
+                    </div>
+
+                    <!-- 1. 数据表现 -->
+                    <div class="card">
+                        <div class="card-title"><span class="step-num">1</span> 数据表现</div>
+                        <div class="data-metrics">
+                            <div class="metric-item">
+                                <label>店铺总GMV</label>
+                                <div class="input-wrap"><span class="prefix">¥</span><input type="number" id="shopGMV" placeholder="0" oninput="saveReviewField('shopGMV',this.value);updateReviewCalc()"></div>
+                            </div>
+                            <div class="metric-item">
+                                <label>达播总GMV</label>
+                                <div class="input-wrap"><span class="prefix">¥</span><input type="number" id="daboGMV" placeholder="0" oninput="saveReviewField('daboGMV',this.value);updateReviewCalc()"></div>
+                            </div>
+                            <div class="metric-item">
+                                <label>达播总GSV</label>
+                                <div class="input-wrap"><span class="prefix">¥</span><input type="number" id="daboGSV" placeholder="0" oninput="saveReviewField('daboGSV',this.value)"></div>
+                            </div>
+                            <div class="metric-item">
+                                <label>达播总GSV费比</label>
+                                <div class="input-wrap"><input type="number" id="daboGSVRatio" placeholder="0" step="0.1" oninput="saveReviewField('daboGSVRatio',this.value)"><span class="suffix">%</span></div>
+                            </div>
+                        </div>
+                        <div class="top5-section">
+                            <h5>🏆 产出TOP5达人</h5>
+                            <table class="top5-table">
+                                <thead><tr><th>#</th><th>达人名字</th><th>GMV</th><th>GMV费比</th></tr></thead>
+                                <tbody id="top5Body"></tbody>
+                            </table>
+                        </div>
+                        <div class="top5-section">
+                            <h5>🎬 产出TOP5引流素材</h5>
+                            <div class="top5-table-wrap">
+                            <table class="top5-table wrap-table">
+                                <thead><tr><th>#</th><th>引流素材</th><th>对应达人</th><th>素材GMV</th><th>整场直播GMV</th><th>产出占比</th><th>投放ROI</th></tr></thead>
+                                <tbody id="top5MatBody"></tbody>
+                            </table>
+                            </div>
+                        </div>
+                        <div class="calc-summary">
+                            <h5>⚡ 自动汇总</h5>
+                            <div class="calc-grid">
+                                <div class="calc-item"><span class="calc-label">TOP5达人总GMV</span><span class="calc-value" id="calcTop5Total">¥0</span></div>
+                                <div class="calc-item"><span class="calc-label">TOP5达人平均GMV</span><span class="calc-value" id="calcTop5Avg">¥0</span></div>
+                                <div class="calc-item"><span class="calc-label">TOP5达人占达播GMV比</span><span class="calc-value" id="calcTop5Ratio">0%</span></div>
+                                <div class="calc-item"><span class="calc-label">达播占店铺GMV比</span><span class="calc-value" id="calcDaboShopRatio">0%</span></div>
+                                <div class="calc-item"><span class="calc-label">TOP5素材总GMV</span><span class="calc-value" id="calcMatTotal">¥0</span></div>
+                                <div class="calc-item"><span class="calc-label">TOP5素材平均产出占比</span><span class="calc-value" id="calcMatAvgRatio">0%</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 亮点 -->
+                    <div class="review-card">
+                        <h4><span class="step-num">2</span> 亮点</h4>
+                        <textarea id="reviewWins" placeholder="本月团队最有成就感的事、做得好的地方..." oninput="saveReviewField('wins',this.value)"></textarea>
+                    </div>
+                    <!-- 3. 不足 -->
+                    <div class="review-card">
+                        <h4><span class="step-num">3</span> 不足</h4>
+                        <textarea id="reviewIssues" placeholder="哪些地方没达到预期？原因是什么？" oninput="saveReviewField('issues',this.value)"></textarea>
+                    </div>
+                    <!-- 4. 下月计划 -->
+                    <div class="review-card">
+                        <h4><span class="step-num">4</span> 下月计划</h4>
+                        <textarea id="reviewPlans" placeholder="下个月最重要的3件事、具体行动..." oninput="saveReviewField('plans',this.value)"></textarea>
+                    </div>
+
+                    <!-- 历史对比 -->
+                    <div class="card" id="historyCard" style="display:none;">
+                        <div class="card-title">📈 历史数据对比</div>
+                        <div style="overflow-x:auto;"><table class="history-table" id="historyTable"></table></div>
+                    </div>
+
+                    <button class="save-review" onclick="saveReviewAll()">💾 保存复盘内容</button>
+                </section>
+            </div>
+        </main>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
+    <script>
+    const DAY_LABELS = ['一','二','三','四','五','六','日'];
+    const CLOUD_API = 'https://jsonblob.com/api/jsonBlob';
+
+    // ===== 默认数据 =====
+    const defaultWeekTasks = [
+        { id:1, text:'多邻国英语', note:'每日打卡 · 碎片时间目标：15分钟 → 30分钟（独自碎片时间）', freq:7, tag:'study', tagText:'学习', days:[false,false,false,false,false,false,false] },
+        { id:2, text:'网球训练', note:'每周2次 · 保持体能与协调性', freq:2, tag:'sport', tagText:'运动', days:[false,false,false,false,false,false,false] },
+        { id:3, text:'普拉提课', note:'每周2次 · 核心力量 + 体态调整', freq:2, tag:'sport', tagText:'运动', days:[false,false,false,false,false,false,false] },
+        { id:4, text:'肩背训练', note:'每日早晨或下班时间 · 改善体态，缓解久坐疲劳', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] }
+    ];
+
+    let weekTasks = [];
+    let reviewData = { months: [] };
+    let currentMonthId = null;
+    let syncTimer = null;
+
+    // ===== 数据收集/应用 =====
+    function collectAllData() {
+        return {
+            weekTasks: weekTasks,
+            reviewData: reviewData,
+            lastSaved: new Date().toISOString()
+        };
+    }
+    function applyData(data) {
+        if (data.weekTasks) { weekTasks = data.weekTasks; localStorage.setItem('beatrice_week_tasks', JSON.stringify(weekTasks)); }
+        if (data.reviewData) { reviewData = data.reviewData; localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData)); }
+        renderWeekTasks();
+        initReview();
+    }
+    function saveLocal() {
+        localStorage.setItem('beatrice_week_tasks', JSON.stringify(weekTasks));
+        localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
+    }
+
+    // ===== 初始化 =====
+    document.addEventListener('DOMContentLoaded', async () => {
+        updateDate();
+        // 加载本地数据
+        weekTasks = JSON.parse(localStorage.getItem('beatrice_week_tasks')) || defaultWeekTasks;
+        reviewData = JSON.parse(localStorage.getItem('beatrice_review_data')) || { months: [] };
+        renderWeekTasks();
+        setupNavigation();
+        renderHotSearch();
+        initReview();
+        // 云同步
+        initCloudUI();
+        const cloudId = localStorage.getItem('beatrice_cloud_id');
+        if (cloudId) { await syncFromCloud(); }
+    });
+
+    function updateDate() {
+        const now = new Date();
+        document.getElementById('dateDisplay').textContent = now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+    }
+
+    function setupNavigation() {
+        const navItems = document.querySelectorAll('.nav-item');
+        const sections = document.querySelectorAll('.content-section');
+        const titles = {
+            weekly: { title:'每周计划', subtitle:'本周打卡进度，养成好习惯' },
+            douyin: { title:'抖音爆款热点视频', subtitle:'捕捉热点，激发创作灵感' },
+            review: { title:'团队月度复盘', subtitle:'每月总结，持续优化成长' }
+        };
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const sec = item.dataset.section;
+                navItems.forEach(n => n.classList.remove('active'));
+                item.classList.add('active');
+                sections.forEach(s => s.classList.remove('active'));
+                document.getElementById(sec).classList.add('active');
+                document.getElementById('pageTitle').textContent = titles[sec].title;
+                document.getElementById('pageSubtitle').textContent = titles[sec].subtitle;
+            });
+        });
+    }
+
+    // ===== 每周计划 =====
+    function renderWeekTasks() {
+        const list = document.getElementById('weekTaskList');
+        list.innerHTML = '';
+        weekTasks.forEach(task => {
+            const completed = task.days.filter(d => d).length;
+            const item = document.createElement('div');
+            item.className = 'week-task';
+            item.innerHTML = `
+                <div class="week-task-header">
+                    <div class="week-task-left"><div>
+                        <div class="week-task-name">${task.text}<span class="tag tag-${task.tag}">${task.tagText}</span></div>
+                        <div class="week-task-note">${task.note}</div>
+                    </div></div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="freq-badge">${completed}/${task.freq}次</span>
+                        <button class="week-task-delete" onclick="deleteWeekTask(${task.id})">🗑️</button>
+                    </div>
+                </div>
+                <div class="day-row" id="days-${task.id}"></div>
+                <div class="week-task-progress"><span>完成度</span><div class="mini-bar"><div class="mini-bar-fill" style="width:${Math.min(100,(completed/task.freq)*100)}%"></div></div><span>${Math.round((completed/task.freq)*100)}%</span></div>`;
+            list.appendChild(item);
+            const dayRow = document.getElementById(`days-${task.id}`);
+            DAY_LABELS.forEach((label, i) => {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                const check = document.createElement('div');
+                check.className = `day-check ${task.days[i] ? 'checked' : ''}`;
+                if (!task.days[i]) check.innerHTML = `<span style="font-size:11px;color:var(--text-secondary);">${label}</span>`;
+                check.onclick = () => toggleDay(task.id, i);
+                cell.appendChild(check);
+                cell.appendChild(Object.assign(document.createElement('div'), { className:'day-label', textContent:label }));
+                dayRow.appendChild(cell);
+            });
+        });
+        updateWeekProgress();
+        saveLocal();
+        scheduleCloudSync();
+    }
+    function toggleDay(taskId, dayIndex) {
+        const task = weekTasks.find(t => t.id === taskId);
+        if (!task) return;
+        task.days[dayIndex] = !task.days[dayIndex];
+        renderWeekTasks();
+    }
+    function addWeekTask() {
+        const input = document.getElementById('newTaskInput');
+        const freq = document.getElementById('newTaskFreq');
+        if (!input.value.trim()) return;
+        weekTasks.push({ id:Date.now(), text:input.value.trim(), note:`每周${freq.value}次 · 自定义任务`, freq:parseInt(freq.value), tag:'work', tagText:'待办', days:[false,false,false,false,false,false,false] });
+        input.value = '';
+        renderWeekTasks();
+    }
+    function deleteWeekTask(id) { weekTasks = weekTasks.filter(t => t.id !== id); renderWeekTasks(); }
+    function updateWeekProgress() {
+        let total = 0, done = 0;
+        weekTasks.forEach(t => { total += t.freq; done += t.days.filter(d => d).length; });
+        const pct = total === 0 ? 0 : Math.round(Math.min(100, (done/total)*100));
+        const circle = document.getElementById('progressCircle');
+        const r = 42, c = 2*Math.PI*r;
+        circle.style.strokeDasharray = c;
+        circle.style.strokeDashoffset = c - (pct/100)*c;
+        document.getElementById('progressText').textContent = pct + '%';
+    }
+
+    // ===== 抖音热点 =====
+    const hotTopics = [
+        { title:'如何用AI做个人工作台', heat:'892.3万', tag:'教程' },
+        { title:'30天自律挑战', heat:'756.1万', tag:'生活' },
+        { title:'普通人如何做自媒体', heat:'623.8万', tag:'创业' },
+        { title:'早起2小时能做什么', heat:'541.2万', tag:'成长' },
+        { title:'女生健身计划一周表', heat:'498.5万', tag:'运动' },
+        { title:'碎片时间学英语方法', heat:'432.7万', tag:'学习' },
+        { title:'团队管理月度复盘模板', heat:'389.4万', tag:'职场' },
+        { title:'短视频爆款开头公式', heat:'356.9万', tag:'创作' }
+    ];
+    function renderHotSearch() {
+        const grid = document.getElementById('hotSearchGrid');
+        grid.innerHTML = '';
+        [...hotTopics].sort(() => Math.random()-0.5).forEach((t, i) => {
+            const rank = i+1;
+            const rc = rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'rank-other';
+            const card = document.createElement('div');
+            card.className = 'hot-card';
+            card.innerHTML = `<div class="hot-title"><span class="hot-rank ${rc}">${rank}</span>${t.title}</div><div class="hot-meta">🔥 ${t.heat} · #${t.tag}</div>`;
+            grid.appendChild(card);
+        });
+    }
+    function refreshHot() { renderHotSearch(); }
+
+    // ===== 团队复盘 =====
+    function initReview() {
+        if (reviewData.months.length === 0) {
+            addReviewMonth(true);
+        } else {
+            currentMonthId = reviewData.months[0].id;
+        }
+        renderMonthSelector();
+        loadReviewMonth(currentMonthId);
+        renderHistoryTable();
+    }
+
+    function renderMonthSelector() {
+        const sel = document.getElementById('reviewMonthSelect');
+        sel.innerHTML = '';
+        reviewData.months.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.label;
+            if (m.id === currentMonthId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function addReviewMonth(silent) {
+        const now = new Date();
+        let y = now.getFullYear(), m = now.getMonth() + 1;
+        // 找一个不重复的月份
+        let label = `${y}年${m}月`;
+        let id = `${y}-${String(m).padStart(2,'0')}`;
+        while (reviewData.months.find(x => x.id === id)) {
+            m--; if (m === 0) { m = 12; y--; }
+            label = `${y}年${m}月`;
+            id = `${y}-${String(m).padStart(2,'0')}`;
+        }
+        const newMonth = {
+            id, label,
+            shopGMV:'', daboGMV:'', daboGSV:'', daboGSVRatio:'',
+            top5: Array.from({length:5}, () => ({ name:'', gmv:'', gmvRatio:'' })),
+            top5Mat: Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' })),
+            wins:'', issues:'', plans:''
+        };
+        reviewData.months.unshift(newMonth);
+        currentMonthId = id;
+        saveLocal();
+        renderMonthSelector();
+        loadReviewMonth(id);
+        renderHistoryTable();
+        scheduleCloudSync();
+        if (!silent) alert('已添加 ' + label);
+    }
+
+    function deleteReviewMonth() {
+        if (reviewData.months.length <= 1) { alert('至少保留一个月'); return; }
+        if (!confirm('确定删除「' + reviewData.months.find(m=>m.id===currentMonthId).label + '」？此操作不可撤销。')) return;
+        reviewData.months = reviewData.months.filter(m => m.id !== currentMonthId);
+        currentMonthId = reviewData.months[0].id;
+        saveLocal();
+        renderMonthSelector();
+        loadReviewMonth(currentMonthId);
+        renderHistoryTable();
+        scheduleCloudSync();
+    }
+
+    function switchReviewMonth(monthId) {
+        currentMonthId = monthId;
+        loadReviewMonth(monthId);
+    }
+
+    function loadReviewMonth(monthId) {
+        const m = reviewData.months.find(x => x.id === monthId);
+        if (!m) return;
+        document.getElementById('shopGMV').value = m.shopGMV || '';
+        document.getElementById('daboGMV').value = m.daboGMV || '';
+        document.getElementById('daboGSV').value = m.daboGSV || '';
+        document.getElementById('daboGSVRatio').value = m.daboGSVRatio || '';
+        document.getElementById('reviewWins').value = m.wins || '';
+        document.getElementById('reviewIssues').value = m.issues || '';
+        document.getElementById('reviewPlans').value = m.plans || '';
+        // TOP5
+        const tbody = document.getElementById('top5Body');
+        tbody.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            const t = m.top5[i] || { name:'', gmv:'', gmvRatio:'' };
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${i+1}</td>
+                <td><input type="text" value="${t.name}" placeholder="达人名字" oninput="saveTop5Field(${i},'name',this.value)"></td>
+                <td><input type="number" class="top5-rank-input" value="${t.gmv}" placeholder="0" oninput="saveTop5Field(${i},'gmv',this.value);updateReviewCalc()"></td>
+                <td><input type="number" class="top5-rank-input" value="${t.gmvRatio}" placeholder="0" step="0.1" oninput="saveTop5Field(${i},'gmvRatio',this.value)"><span style="font-size:12px;color:#999;margin-left:4px;">%</span></td>`;
+            tbody.appendChild(tr);
+        }
+        // TOP5 引流素材
+        const matBody = document.getElementById('top5MatBody');
+        matBody.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            const t = (m.top5Mat && m.top5Mat[i]) || { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
+            const ratio = (parseFloat(t.gmv) && parseFloat(t.liveGmv)) ? ((parseFloat(t.gmv) / parseFloat(t.liveGmv)) * 100).toFixed(1) + '%' : '-';
+            const ratioClass = ratio === '-' ? 'calc-cell zero' : 'calc-cell';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${i+1}</td>
+                <td><input type="text" value="${t.material}" placeholder="素材名称" oninput="saveTop5MatField(${i},'material',this.value)"></td>
+                <td><input type="text" value="${t.talent}" placeholder="达人名字" oninput="saveTop5MatField(${i},'talent',this.value)"></td>
+                <td><input type="number" value="${t.gmv}" placeholder="0" oninput="saveTop5MatField(${i},'gmv',this.value);updateReviewCalc()"></td>
+                <td><input type="number" value="${t.liveGmv}" placeholder="0" oninput="saveTop5MatField(${i},'liveGmv',this.value);updateReviewCalc()"></td>
+                <td class="${ratioClass}" id="matRatio-${i}">${ratio}</td>
+                <td><input type="number" value="${t.roi}" placeholder="如有" step="0.01" oninput="saveTop5MatField(${i},'roi',this.value)"></td>`;
+            matBody.appendChild(tr);
+        }
+        updateReviewCalc();
+    }
+
+    function saveReviewField(field, value) {
+        const m = reviewData.months.find(x => x.id === currentMonthId);
+        if (!m) return;
+        m[field] = value;
+        saveLocal();
+        scheduleCloudSync();
+    }
+
+    function saveTop5Field(index, field, value) {
+        const m = reviewData.months.find(x => x.id === currentMonthId);
+        if (!m) return;
+        if (!m.top5[index]) m.top5[index] = { name:'', gmv:'', gmvRatio:'' };
+        m.top5[index][field] = value;
+        saveLocal();
+        scheduleCloudSync();
+    }
+
+    function saveTop5MatField(index, field, value) {
+        const m = reviewData.months.find(x => x.id === currentMonthId);
+        if (!m) return;
+        if (!m.top5Mat) m.top5Mat = Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' }));
+        if (!m.top5Mat[index]) m.top5Mat[index] = { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
+        m.top5Mat[index][field] = value;
+        // 实时更新产出占比
+        if (field === 'gmv' || field === 'liveGmv') {
+            const gmv = parseFloat(m.top5Mat[index].gmv) || 0;
+            const liveGmv = parseFloat(m.top5Mat[index].liveGmv) || 0;
+            const cell = document.getElementById(`matRatio-${index}`);
+            if (cell) {
+                if (gmv > 0 && liveGmv > 0) {
+                    const ratio = (gmv / liveGmv * 100).toFixed(1) + '%';
+                    cell.textContent = ratio;
+                    cell.classList.remove('zero');
+                } else {
+                    cell.textContent = '-';
+                    cell.classList.add('zero');
+                }
+            }
+        }
+        saveLocal();
+        scheduleCloudSync();
+    }
+
+    function fmtMoney(n) {
+        n = parseFloat(n);
+        if (!n || isNaN(n)) return '¥0';
+        return '¥' + n.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+    }
+    function fmtPct(n) {
+        n = parseFloat(n);
+        if (!n || isNaN(n)) return '0%';
+        return n.toFixed(1) + '%';
+    }
+
+    function updateReviewCalc() {
+        const m = reviewData.months.find(x => x.id === currentMonthId);
+        if (!m) return;
+        const top5GMV = m.top5.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
+        const daboGMV = parseFloat(m.daboGMV) || 0;
+        const shopGMV = parseFloat(m.shopGMV) || 0;
+        document.getElementById('calcTop5Total').textContent = fmtMoney(top5GMV);
+        document.getElementById('calcTop5Avg').textContent = fmtMoney(top5GMV / 5);
+        document.getElementById('calcTop5Ratio').textContent = daboGMV > 0 ? fmtPct((top5GMV / daboGMV) * 100) : '0%';
+        document.getElementById('calcDaboShopRatio').textContent = shopGMV > 0 ? fmtPct((daboGMV / shopGMV) * 100) : '0%';
+        // 引流素材汇总
+        if (m.top5Mat) {
+            const matGMV = m.top5Mat.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
+            const ratios = m.top5Mat.filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0)
+                                    .map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
+            const avgRatio = ratios.length > 0 ? (ratios.reduce((s, r) => s + r, 0) / ratios.length * 100) : 0;
+            const elMatTotal = document.getElementById('calcMatTotal');
+            const elMatAvg = document.getElementById('calcMatAvgRatio');
+            if (elMatTotal) elMatTotal.textContent = fmtMoney(matGMV);
+            if (elMatAvg) elMatAvg.textContent = fmtPct(avgRatio);
+        }
+    }
+
+    function renderHistoryTable() {
+        const card = document.getElementById('historyCard');
+        const table = document.getElementById('historyTable');
+        if (reviewData.months.length < 2) { card.style.display = 'none'; return; }
+        card.style.display = 'block';
+        let html = '<thead><tr><th>月份</th><th>店铺总GMV</th><th>达播总GMV</th><th>达播总GSV</th><th>GSV费比</th><th>TOP5达人GMV</th><th>TOP5占达播比</th><th>TOP5素材GMV</th><th>素材平均产出占比</th></tr></thead><tbody>';
+        reviewData.months.forEach(m => {
+            const top5GMV = m.top5.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
+            const daboGMV = parseFloat(m.daboGMV) || 0;
+            const top5Ratio = daboGMV > 0 ? ((top5GMV / daboGMV) * 100).toFixed(1) + '%' : '-';
+            const matGMV = (m.top5Mat || []).reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
+            const matRatios = (m.top5Mat || []).filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0).map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
+            const matAvgRatio = matRatios.length > 0 ? (matRatios.reduce((s, r) => s + r, 0) / matRatios.length * 100).toFixed(1) + '%' : '-';
+            html += `<tr><td>${m.label}</td><td>${fmtMoney(m.shopGMV)}</td><td>${fmtMoney(m.daboGMV)}</td><td>${fmtMoney(m.daboGSV)}</td><td>${m.daboGSVRatio ? m.daboGSVRatio + '%' : '-'}</td><td>${fmtMoney(top5GMV)}</td><td>${top5Ratio}</td><td>${fmtMoney(matGMV)}</td><td>${matAvgRatio}</td></tr>`;
+        });
+        html += '</tbody>';
+        table.innerHTML = html;
+    }
+
+    function saveReviewAll() {
+        saveLocal();
+        scheduleCloudSync();
+        renderHistoryTable();
+        alert('复盘内容已保存 ✓');
+    }
+
+    // ===== 云端同步 =====
+    function initCloudUI() {
+        const cloudId = localStorage.getItem('beatrice_cloud_id');
+        if (cloudId) {
+            document.getElementById('syncDot').classList.add('on');
+            document.getElementById('syncText').textContent = '云端已连接';
+            document.getElementById('syncConnected').style.display = 'block';
+            document.getElementById('syncDisconnected').style.display = 'none';
+            document.getElementById('syncCode').textContent = cloudId;
+            updateSyncTime();
+        }
+    }
+
+    function updateSyncTime() {
+        const t = localStorage.getItem('beatrice_last_sync');
+        if (t) {
+            const d = new Date(t);
+            document.getElementById('syncTime').textContent = '上次同步：' + d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+        }
+    }
+
+    async function createCloudSync() {
+        try {
+            const data = collectAllData();
+            const resp = await fetch(CLOUD_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const blobId = resp.headers.get('X-JsonBlob-Id') || resp.headers.get('Location')?.split('/').pop();
+            if (!blobId) throw new Error('未获取到同步码');
+            localStorage.setItem('beatrice_cloud_id', blobId);
+            localStorage.setItem('beatrice_last_sync', new Date().toISOString());
+            initCloudUI();
+            alert('✅ 云同步已开启！\n\n你的同步码：\n' + blobId + '\n\n请在其他设备上点击「连接同步码」并输入此码。');
+        } catch (e) {
+            alert('❌ 开启失败：' + e.message + '\n\n你可以先使用「导出/导入」功能手动同步。');
+        }
+    }
+
+    function showConnectDialog() {
+        const code = prompt('请输入同步码：');
+        if (!code) return;
+        connectCloudSync(code.trim());
+    }
+
+    async function connectCloudSync(blobId) {
+        try {
+            const resp = await fetch(`${CLOUD_API}/${blobId}`);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status + (resp.status === 404 ? '（同步码无效或已过期）' : ''));
+            const data = await resp.json();
+            localStorage.setItem('beatrice_cloud_id', blobId);
+            localStorage.setItem('beatrice_last_sync', new Date().toISOString());
+            applyData(data);
+            initCloudUI();
+            alert('✅ 已连接云端，数据已同步！');
+        } catch (e) {
+            alert('❌ 连接失败：' + e.message);
+        }
+    }
+
+    function scheduleCloudSync() {
+        const cloudId = localStorage.getItem('beatrice_cloud_id');
+        if (!cloudId) return;
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(syncToCloud, 3000);
+    }
+
+    async function syncToCloud() {
+        const cloudId = localStorage.getItem('beatrice_cloud_id');
+        if (!cloudId) return;
+        try {
+            const data = collectAllData();
+            const resp = await fetch(`${CLOUD_API}/${cloudId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (resp.ok) {
+                localStorage.setItem('beatrice_last_sync', new Date().toISOString());
+                updateSyncTime();
+            }
+        } catch (e) { console.warn('Cloud sync failed:', e); }
+    }
+
+    async function syncFromCloud() {
+        const cloudId = localStorage.getItem('beatrice_cloud_id');
+        if (!cloudId) return;
+        try {
+            const resp = await fetch(`${CLOUD_API}/${cloudId}`);
+            if (!resp.ok) {
+                if (resp.status === 404) {
+                    alert('⚠️ 云端数据已过期（超过24小时未更新）。\n请在原设备上打开工作台刷新一次，或重新开启云同步。');
+                    localStorage.removeItem('beatrice_cloud_id');
+                    initCloudUI();
+                }
+                return;
+            }
+            const data = await resp.json();
+            applyData(data);
+            localStorage.setItem('beatrice_last_sync', new Date().toISOString());
+            updateSyncTime();
+        } catch (e) { console.warn('Cloud fetch failed:', e); }
+    }
+
+    function copySyncCode() {
+        const code = document.getElementById('syncCode').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            alert('同步码已复制：\n' + code);
+        }).catch(() => {
+            prompt('请复制此同步码：', code);
+        });
+    }
+
+    // ===== 导出/导入 =====
+    function exportData() {
+        const data = collectAllData();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `beatrice-workbench-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!data.weekTasks && !data.reviewData) { alert('❌ 文件格式不正确'); return; }
+                if (confirm('导入将覆盖当前数据，确定？')) {
+                    applyData(data);
+                    scheduleCloudSync();
+                    alert('✅ 数据导入成功！');
+                }
+            } catch (err) {
+                alert('❌ 导入失败：' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+    </script>
+
+    <!-- Service Worker for offline support -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').then(() => {
+                console.log('SW registered');
+            }).catch((err) => {
+                console.log('SW failed:', err);
+            });
+        });
+    }
+    </script>
+</body>
+</html>
