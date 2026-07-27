@@ -1,0 +1,24 @@
+{
+  "name": "Beatrice 的工作台",
+  "short_name": "Beatrice",
+  "description": "专属工作台 - 每周计划、抖音热点、团队月度复盘",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0f5f0",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
