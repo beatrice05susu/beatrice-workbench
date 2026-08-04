@@ -153,6 +153,12 @@
         .hot-meta { font-size: 12px; color: var(--text-secondary); }
         .refresh-btn { padding: 10px 20px; background: var(--primary-light); color: var(--primary); border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 16px; }
 
+        .hot-video-list { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+        .hot-video-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; }
+        .hot-video-item a { color: var(--primary); text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hot-video-item a:hover { text-decoration: underline; }
+        .hot-video-rank-sm { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f0f0f0; color: var(--text-secondary); flex-shrink: 0; }
+
         /* ===== 团队复盘 ===== */
         .review-month-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
         .review-month-bar select { padding: 10px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; background: white; cursor: pointer; font-weight: 600; }
@@ -338,9 +344,14 @@
                 <!-- 抖音热点 -->
                 <section class="content-section" id="douyin">
                     <div class="card">
-                        <div class="card-title">🔥 抖音实时热点 <span class="tag tag-work">创作灵感</span></div>
-                        <button class="refresh-btn" onclick="refreshHot()">🔄 刷新热点</button>
-                        <div class="hot-search-grid" id="hotSearchGrid"></div>
+                        <div class="card-title">🔥 抖音实时热点 <span class="tag tag-work">每日更新</span></div>
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                            <button class="refresh-btn" onclick="loadHotSearch()">🔄 刷新热点</button>
+                            <span style="font-size:12px;color:var(--text-secondary);" id="hotUpdateTime"></span>
+                        </div>
+                        <div class="hot-search-grid" id="hotSearchGrid">
+                            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);">加载中...</div>
+                        </div>
                     </div>
                 </section>
 
@@ -468,9 +479,53 @@
     }
 
     let weeklyData = { currentWeekId: getCurrentWeekId(), weeks: {} };
-    let reviewData = { months: [] };
-    let currentMonthId = null;
+    let reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
     let syncTimer = null;
+
+    // ===== 月管理 =====
+    function getCurrentMonthId() {
+        const now = new Date();
+        return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+    function getMonthLabel(monthId) {
+        const [y, m] = monthId.split('-');
+        return y + '年' + parseInt(m) + '月';
+    }
+    function getCurrentMonth() {
+        if (!reviewData.months[reviewData.currentMonthId]) {
+            reviewData.months[reviewData.currentMonthId] = makeEmptyMonth(reviewData.currentMonthId);
+        }
+        return reviewData.months[reviewData.currentMonthId];
+    }
+    function makeEmptyMonth(monthId) {
+        return {
+            id: monthId,
+            label: getMonthLabel(monthId),
+            shopGMV: '', daboGMV: '', daboGSV: '', daboGSVRatio: '',
+            top5: Array.from({ length: 5 }, () => ({ name: '', gmv: '', gmvRatio: '' })),
+            top5Mat: Array.from({ length: 5 }, () => ({ material: '', talent: '', gmv: '', liveGmv: '', roi: '' })),
+            wins: '', issues: '', plans: '',
+            createdAt: new Date().toISOString()
+        };
+    }
+    function getPastMonths() {
+        return Object.keys(reviewData.months)
+            .filter(m => m !== reviewData.currentMonthId)
+            .sort((a, b) => b.localeCompare(a));
+    }
+    function ensureCurrentMonth() {
+        const currentId = getCurrentMonthId();
+        if (reviewData.currentMonthId !== currentId) {
+            reviewData.currentMonthId = currentId;
+            if (!reviewData.months[currentId]) {
+                reviewData.months[currentId] = makeEmptyMonth(currentId);
+            }
+            saveLocal();
+        }
+    }
+    function getMonthReview(monthId) {
+        return reviewData.months[monthId];
+    }
 
     function getCurrentWeek() {
         if (!weeklyData.weeks[weeklyData.currentWeekId]) {
@@ -504,7 +559,21 @@
             weeklyData.weeks[currentId] = { tasks: JSON.parse(JSON.stringify(data.weekTasks)), createdAt: new Date().toISOString() };
             localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
         }
-        if (data.reviewData) { reviewData = data.reviewData; localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData)); }
+        if (data.reviewData) {
+            // 兼容旧格式（months 是数组）
+            if (Array.isArray(data.reviewData.months)) {
+                const oldMonths = data.reviewData.months;
+                reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
+                oldMonths.forEach(m => {
+                    reviewData.months[m.id] = { ...m, createdAt: m.createdAt || new Date().toISOString() };
+                });
+                ensureCurrentMonth();
+            } else {
+                reviewData = data.reviewData;
+                ensureCurrentMonth();
+            }
+            localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
+        }
         renderWeekTasks();
         renderWeekHistory();
         initReview();
@@ -574,11 +643,30 @@
                 ensureCurrentWeek();
             }
         }
-        reviewData = savedReview ? JSON.parse(savedReview) : { months: [] };
+        // 加载复盘数据（支持旧格式迁移）
+        if (savedReview) {
+            const parsed = JSON.parse(savedReview);
+            if (Array.isArray(parsed.months)) {
+                // 旧格式：months 是数组
+                reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
+                parsed.months.forEach(m => { reviewData.months[m.id] = { ...m, createdAt: m.createdAt || new Date().toISOString() }; });
+                ensureCurrentMonth();
+                saveLocal();
+            } else if (parsed.months && typeof parsed.months === 'object') {
+                reviewData = parsed;
+                ensureCurrentMonth();
+            } else {
+                reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
+                ensureCurrentMonth();
+            }
+        } else {
+            reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
+            ensureCurrentMonth();
+        }
         renderWeekTasks();
         renderWeekHistory();
         setupNavigation();
-        renderHotSearch();
+        loadHotSearch();
         initReview();
         // 云同步
         initCloudUI();
@@ -751,103 +839,118 @@
         document.body.appendChild(overlay);
     }
 
-    // ===== 抖音热点 =====
-    const hotTopics = [
-        { title:'如何用AI做个人工作台', heat:'892.3万', tag:'教程' },
-        { title:'30天自律挑战', heat:'756.1万', tag:'生活' },
-        { title:'普通人如何做自媒体', heat:'623.8万', tag:'创业' },
-        { title:'早起2小时能做什么', heat:'541.2万', tag:'成长' },
-        { title:'女生健身计划一周表', heat:'498.5万', tag:'运动' },
-        { title:'碎片时间学英语方法', heat:'432.7万', tag:'学习' },
-        { title:'团队管理月度复盘模板', heat:'389.4万', tag:'职场' },
-        { title:'短视频爆款开头公式', heat:'356.9万', tag:'创作' }
-    ];
-    function renderHotSearch() {
+    // ===== 抖音热点（动态加载） =====
+    const DOUYIN_BLOB_ID = '019fcaac-4142-7217-8240-60dd6df4c2a6';
+    let hotTopicsCache = null;
+
+    async function loadHotSearch() {
+        const grid = document.getElementById('hotSearchGrid');
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);">刷新中...</div>';
+        try {
+            const resp = await fetch(`${CLOUD_API}/${DOUYIN_BLOB_ID}?_=${Date.now()}`);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            hotTopicsCache = data;
+            renderHotCards(data);
+            const t = data.updated ? new Date(data.updated) : new Date();
+            document.getElementById('hotUpdateTime').textContent = '更新于 ' + t.toLocaleDateString('zh-CN', { month:'numeric', day:'numeric' }) + ' ' + t.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+        } catch (e) {
+            console.warn('Douyin hot fetch failed:', e.message);
+            if (hotTopicsCache) {
+                renderHotCards(hotTopicsCache);
+                document.getElementById('hotUpdateTime').textContent = '（使用缓存数据）';
+            } else {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);">热点数据加载失败，请稍后重试</div>';
+            }
+        }
+    }
+
+    function renderHotCards(data) {
         const grid = document.getElementById('hotSearchGrid');
         grid.innerHTML = '';
-        [...hotTopics].sort(() => Math.random()-0.5).forEach((t, i) => {
-            const rank = i+1;
-            const rc = rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'rank-other';
+        if (!data || !data.topics || data.topics.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);">暂无热点数据</div>';
+            return;
+        }
+        data.topics.forEach((t, i) => {
+            const rank = i + 1;
+            const rc = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
             const card = document.createElement('div');
             card.className = 'hot-card';
-            card.innerHTML = `<div class="hot-title"><span class="hot-rank ${rc}">${rank}</span>${t.title}</div><div class="hot-meta">🔥 ${t.heat} · #${t.tag}</div>`;
+            let videosHtml = '';
+            if (t.videos && t.videos.length > 0) {
+                videosHtml = '<div class="hot-video-list">' + t.videos.map((v, vi) => {
+                    return '<div class="hot-video-item">' +
+                        '<span class="hot-video-rank-sm">' + (vi + 1) + '</span>' +
+                        '<a href="' + v.url + '" target="_blank" rel="noopener">' + v.title + '</a>' +
+                        '</div>';
+                }).join('') + '</div>';
+            }
+            card.innerHTML = '<div class="hot-title"><span class="hot-rank ' + rc + '">' + rank + '</span>' + (t.title || '') + '</div>' +
+                '<div class="hot-meta">🔥 ' + (t.heat || '') + (t.videos ? ' · ' + t.videos.length + '个热门视频' : '') + '</div>' + videosHtml;
             grid.appendChild(card);
         });
     }
-    function refreshHot() { renderHotSearch(); }
 
     // ===== 团队复盘 =====
     function initReview() {
-        if (reviewData.months.length === 0) {
-            addReviewMonth(true);
-        } else {
-            currentMonthId = reviewData.months[0].id;
-        }
+        ensureCurrentMonth();
         renderMonthSelector();
-        loadReviewMonth(currentMonthId);
+        loadReviewMonth(reviewData.currentMonthId);
         renderHistoryTable();
     }
 
     function renderMonthSelector() {
         const sel = document.getElementById('reviewMonthSelect');
         sel.innerHTML = '';
-        reviewData.months.forEach(m => {
+        const sortedIds = Object.keys(reviewData.months).sort((a, b) => b.localeCompare(a));
+        sortedIds.forEach(id => {
+            const m = reviewData.months[id];
             const opt = document.createElement('option');
             opt.value = m.id;
             opt.textContent = m.label;
-            if (m.id === currentMonthId) opt.selected = true;
+            if (m.id === reviewData.currentMonthId) opt.selected = true;
             sel.appendChild(opt);
         });
     }
 
-    function addReviewMonth(silent) {
-        const now = new Date();
-        let y = now.getFullYear(), m = now.getMonth() + 1;
-        // 找一个不重复的月份
-        let label = `${y}年${m}月`;
-        let id = `${y}-${String(m).padStart(2,'0')}`;
-        while (reviewData.months.find(x => x.id === id)) {
-            m--; if (m === 0) { m = 12; y--; }
-            label = `${y}年${m}月`;
-            id = `${y}-${String(m).padStart(2,'0')}`;
-        }
-        const newMonth = {
-            id, label,
-            shopGMV:'', daboGMV:'', daboGSV:'', daboGSVRatio:'',
-            top5: Array.from({length:5}, () => ({ name:'', gmv:'', gmvRatio:'' })),
-            top5Mat: Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' })),
-            wins:'', issues:'', plans:''
-        };
-        reviewData.months.unshift(newMonth);
-        currentMonthId = id;
+    function addReviewMonth() {
+        const id = prompt('输入月份（格式：YYYY-MM，如 2026-07）：', new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+        if (!id) return;
+        if (reviewData.months[id]) { alert('该月份已存在'); return; }
+        reviewData.months[id] = makeEmptyMonth(id);
+        reviewData.currentMonthId = id;
         saveLocal();
         renderMonthSelector();
         loadReviewMonth(id);
         renderHistoryTable();
         scheduleCloudSync();
-        if (!silent) alert('已添加 ' + label);
     }
 
     function deleteReviewMonth() {
-        if (reviewData.months.length <= 1) { alert('至少保留一个月'); return; }
-        if (!confirm('确定删除「' + reviewData.months.find(m=>m.id===currentMonthId).label + '」？此操作不可撤销。')) return;
-        reviewData.months = reviewData.months.filter(m => m.id !== currentMonthId);
-        currentMonthId = reviewData.months[0].id;
+        const ids = Object.keys(reviewData.months);
+        if (ids.length <= 1) { alert('至少保留一个月'); return; }
+        const cid = reviewData.currentMonthId;
+        if (!confirm('确定删除「' + reviewData.months[cid].label + '」？此操作不可撤销。')) return;
+        delete reviewData.months[cid];
+        reviewData.currentMonthId = ids.sort((a, b) => b.localeCompare(a)).find(id => id !== cid) || ids[0];
         saveLocal();
         renderMonthSelector();
-        loadReviewMonth(currentMonthId);
+        loadReviewMonth(reviewData.currentMonthId);
         renderHistoryTable();
         scheduleCloudSync();
     }
 
     function switchReviewMonth(monthId) {
-        currentMonthId = monthId;
+        reviewData.currentMonthId = monthId;
         loadReviewMonth(monthId);
     }
 
     function loadReviewMonth(monthId) {
-        const m = reviewData.months.find(x => x.id === monthId);
+        const m = reviewData.months[monthId];
         if (!m) return;
+        reviewData.currentMonthId = monthId;
+        renderMonthSelector();
         document.getElementById('shopGMV').value = m.shopGMV || '';
         document.getElementById('daboGMV').value = m.daboGMV || '';
         document.getElementById('daboGSV').value = m.daboGSV || '';
@@ -861,10 +964,10 @@
         for (let i = 0; i < 5; i++) {
             const t = m.top5[i] || { name:'', gmv:'', gmvRatio:'' };
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${i+1}</td>
-                <td><input type="text" value="${t.name}" placeholder="达人名字" oninput="saveTop5Field(${i},'name',this.value)"></td>
-                <td><input type="number" class="top5-rank-input" value="${t.gmv}" placeholder="0" oninput="saveTop5Field(${i},'gmv',this.value);updateReviewCalc()"></td>
-                <td><input type="number" class="top5-rank-input" value="${t.gmvRatio}" placeholder="0" step="0.1" oninput="saveTop5Field(${i},'gmvRatio',this.value)"><span style="font-size:12px;color:#999;margin-left:4px;">%</span></td>`;
+            tr.innerHTML = '<td>' + (i+1) + '</td>' +
+                '<td><input type="text" value="' + (t.name||'') + '" placeholder="达人名字" oninput="saveTop5Field(' + i + ',\'name\',this.value)"></td>' +
+                '<td><input type="number" class="top5-rank-input" value="' + (t.gmv||'') + '" placeholder="0" oninput="saveTop5Field(' + i + ',\'gmv\',this.value);updateReviewCalc()"></td>' +
+                '<td><input type="number" class="top5-rank-input" value="' + (t.gmvRatio||'') + '" placeholder="0" step="0.1" oninput="saveTop5Field(' + i + ',\'gmvRatio\',this.value)"><span style="font-size:12px;color:#999;margin-left:4px;">%</span></td>';
             tbody.appendChild(tr);
         }
         // TOP5 引流素材
@@ -875,20 +978,20 @@
             const ratio = (parseFloat(t.gmv) && parseFloat(t.liveGmv)) ? ((parseFloat(t.gmv) / parseFloat(t.liveGmv)) * 100).toFixed(1) + '%' : '-';
             const ratioClass = ratio === '-' ? 'calc-cell zero' : 'calc-cell';
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${i+1}</td>
-                <td><input type="text" value="${t.material}" placeholder="素材名称" oninput="saveTop5MatField(${i},'material',this.value)"></td>
-                <td><input type="text" value="${t.talent}" placeholder="达人名字" oninput="saveTop5MatField(${i},'talent',this.value)"></td>
-                <td><input type="number" value="${t.gmv}" placeholder="0" oninput="saveTop5MatField(${i},'gmv',this.value);updateReviewCalc()"></td>
-                <td><input type="number" value="${t.liveGmv}" placeholder="0" oninput="saveTop5MatField(${i},'liveGmv',this.value);updateReviewCalc()"></td>
-                <td class="${ratioClass}" id="matRatio-${i}">${ratio}</td>
-                <td><input type="number" value="${t.roi}" placeholder="如有" step="0.01" oninput="saveTop5MatField(${i},'roi',this.value)"></td>`;
+            tr.innerHTML = '<td>' + (i+1) + '</td>' +
+                '<td><input type="text" value="' + (t.material||'') + '" placeholder="素材名称" oninput="saveTop5MatField(' + i + ',\'material\',this.value)"></td>' +
+                '<td><input type="text" value="' + (t.talent||'') + '" placeholder="达人名字" oninput="saveTop5MatField(' + i + ',\'talent\',this.value)"></td>' +
+                '<td><input type="number" value="' + (t.gmv||'') + '" placeholder="0" oninput="saveTop5MatField(' + i + ',\'gmv\',this.value);updateReviewCalc()"></td>' +
+                '<td><input type="number" value="' + (t.liveGmv||'') + '" placeholder="0" oninput="saveTop5MatField(' + i + ',\'liveGmv\',this.value);updateReviewCalc()"></td>' +
+                '<td class="' + ratioClass + '" id="matRatio-' + i + '">' + ratio + '</td>' +
+                '<td><input type="number" value="' + (t.roi||'') + '" placeholder="如有" step="0.01" oninput="saveTop5MatField(' + i + ',\'roi\',this.value)"></td>';
             matBody.appendChild(tr);
         }
         updateReviewCalc();
     }
 
     function saveReviewField(field, value) {
-        const m = reviewData.months.find(x => x.id === currentMonthId);
+        const m = getCurrentMonth();
         if (!m) return;
         m[field] = value;
         saveLocal();
@@ -896,7 +999,7 @@
     }
 
     function saveTop5Field(index, field, value) {
-        const m = reviewData.months.find(x => x.id === currentMonthId);
+        const m = getCurrentMonth();
         if (!m) return;
         if (!m.top5[index]) m.top5[index] = { name:'', gmv:'', gmvRatio:'' };
         m.top5[index][field] = value;
@@ -905,20 +1008,18 @@
     }
 
     function saveTop5MatField(index, field, value) {
-        const m = reviewData.months.find(x => x.id === currentMonthId);
+        const m = getCurrentMonth();
         if (!m) return;
         if (!m.top5Mat) m.top5Mat = Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' }));
         if (!m.top5Mat[index]) m.top5Mat[index] = { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
         m.top5Mat[index][field] = value;
-        // 实时更新产出占比
         if (field === 'gmv' || field === 'liveGmv') {
             const gmv = parseFloat(m.top5Mat[index].gmv) || 0;
             const liveGmv = parseFloat(m.top5Mat[index].liveGmv) || 0;
-            const cell = document.getElementById(`matRatio-${index}`);
+            const cell = document.getElementById('matRatio-' + index);
             if (cell) {
                 if (gmv > 0 && liveGmv > 0) {
-                    const ratio = (gmv / liveGmv * 100).toFixed(1) + '%';
-                    cell.textContent = ratio;
+                    cell.textContent = (gmv / liveGmv * 100).toFixed(1) + '%';
                     cell.classList.remove('zero');
                 } else {
                     cell.textContent = '-';
@@ -942,7 +1043,7 @@
     }
 
     function updateReviewCalc() {
-        const m = reviewData.months.find(x => x.id === currentMonthId);
+        const m = getCurrentMonth();
         if (!m) return;
         const top5GMV = m.top5.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
         const daboGMV = parseFloat(m.daboGMV) || 0;
@@ -951,7 +1052,6 @@
         document.getElementById('calcTop5Avg').textContent = fmtMoney(top5GMV / 5);
         document.getElementById('calcTop5Ratio').textContent = daboGMV > 0 ? fmtPct((top5GMV / daboGMV) * 100) : '0%';
         document.getElementById('calcDaboShopRatio').textContent = shopGMV > 0 ? fmtPct((daboGMV / shopGMV) * 100) : '0%';
-        // 引流素材汇总
         if (m.top5Mat) {
             const matGMV = m.top5Mat.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
             const ratios = m.top5Mat.filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0)
@@ -967,17 +1067,29 @@
     function renderHistoryTable() {
         const card = document.getElementById('historyCard');
         const table = document.getElementById('historyTable');
-        if (reviewData.months.length < 2) { card.style.display = 'none'; return; }
+        const pastIds = getPastMonths();
+        if (pastIds.length === 0) { card.style.display = 'none'; return; }
         card.style.display = 'block';
         let html = '<thead><tr><th>月份</th><th>店铺总GMV</th><th>达播总GMV</th><th>达播总GSV</th><th>GSV费比</th><th>TOP5达人GMV</th><th>TOP5占达播比</th><th>TOP5素材GMV</th><th>素材平均产出占比</th></tr></thead><tbody>';
-        reviewData.months.forEach(m => {
+        pastIds.forEach(id => {
+            const m = reviewData.months[id];
+            if (!m) return;
             const top5GMV = m.top5.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
             const daboGMV = parseFloat(m.daboGMV) || 0;
             const top5Ratio = daboGMV > 0 ? ((top5GMV / daboGMV) * 100).toFixed(1) + '%' : '-';
             const matGMV = (m.top5Mat || []).reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
             const matRatios = (m.top5Mat || []).filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0).map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
             const matAvgRatio = matRatios.length > 0 ? (matRatios.reduce((s, r) => s + r, 0) / matRatios.length * 100).toFixed(1) + '%' : '-';
-            html += `<tr><td>${m.label}</td><td>${fmtMoney(m.shopGMV)}</td><td>${fmtMoney(m.daboGMV)}</td><td>${fmtMoney(m.daboGSV)}</td><td>${m.daboGSVRatio ? m.daboGSVRatio + '%' : '-'}</td><td>${fmtMoney(top5GMV)}</td><td>${top5Ratio}</td><td>${fmtMoney(matGMV)}</td><td>${matAvgRatio}</td></tr>`;
+            html += '<tr style="cursor:pointer;" onclick="switchReviewMonth(\'' + id + '\');document.querySelector(\'.nav-item[data-section=review]\').click();">' +
+                '<td>' + m.label + '</td>' +
+                '<td>' + fmtMoney(m.shopGMV) + '</td>' +
+                '<td>' + fmtMoney(m.daboGMV) + '</td>' +
+                '<td>' + fmtMoney(m.daboGSV) + '</td>' +
+                '<td>' + (m.daboGSVRatio ? m.daboGSVRatio + '%' : '-') + '</td>' +
+                '<td>' + fmtMoney(top5GMV) + '</td>' +
+                '<td>' + top5Ratio + '</td>' +
+                '<td>' + fmtMoney(matGMV) + '</td>' +
+                '<td>' + matAvgRatio + '</td></tr>';
         });
         html += '</tbody>';
         table.innerHTML = html;
