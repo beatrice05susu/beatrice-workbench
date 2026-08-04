@@ -327,6 +327,12 @@
                             <button onclick="addWeekTask()">添加任务</button>
                         </div>
                     </div>
+
+                    <!-- 历史记录 -->
+                    <div class="card" id="weekHistoryCard" style="display:none;">
+                        <div class="card-title">📅 历史周记录</div>
+                        <div id="weekHistoryList" style="font-size:13px;color:var(--text-secondary);"></div>
+                    </div>
                 </section>
 
                 <!-- 抖音热点 -->
@@ -431,7 +437,7 @@
     const DAY_LABELS = ['一','二','三','四','五','六','日'];
     const CLOUD_API = 'https://jsonblob.com/api/jsonBlob';
 
-    // ===== 默认数据 =====
+    // ===== 默认任务模板 =====
     const defaultWeekTasks = [
         { id:1, text:'多邻国英语', note:'每日打卡 · 碎片时间目标：15分钟 → 30分钟（独自碎片时间）', freq:7, tag:'study', tagText:'学习', days:[false,false,false,false,false,false,false] },
         { id:2, text:'网球训练', note:'每周2次 · 保持体能与协调性', freq:2, tag:'sport', tagText:'运动', days:[false,false,false,false,false,false,false] },
@@ -439,37 +445,121 @@
         { id:4, text:'肩背训练', note:'每日早晨或下班时间 · 改善体态，缓解久坐疲劳', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] }
     ];
 
-    let weekTasks = [];
+    // ===== 周管理 =====
+    function getCurrentWeekId() {
+        const now = new Date();
+        const day = now.getDay();
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+        monday.setHours(0,0,0,0);
+        return monday.toISOString().slice(0, 10);
+    }
+    function getWeekLabel(weekId) {
+        const monday = new Date(weekId + 'T00:00:00');
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const fmt = d => (d.getMonth()+1) + '/' + d.getDate();
+        return fmt(monday) + ' - ' + fmt(sunday);
+    }
+    function cloneTaskForWeek(task) {
+        return { ...JSON.parse(JSON.stringify(task)), days: [false,false,false,false,false,false,false], id: Date.now() + Math.floor(Math.random()*10000) };
+    }
+
+    let weeklyData = { currentWeekId: getCurrentWeekId(), weeks: {} };
     let reviewData = { months: [] };
     let currentMonthId = null;
     let syncTimer = null;
 
+    function getCurrentWeek() {
+        if (!weeklyData.weeks[weeklyData.currentWeekId]) {
+            weeklyData.weeks[weeklyData.currentWeekId] = { tasks: defaultWeekTasks.map(cloneTaskForWeek), createdAt: new Date().toISOString() };
+        }
+        return weeklyData.weeks[weeklyData.currentWeekId];
+    }
+    function getPastWeeks() {
+        return Object.keys(weeklyData.weeks)
+            .filter(w => w !== weeklyData.currentWeekId)
+            .sort((a,b) => b.localeCompare(a));
+    }
+
     // ===== 数据收集/应用 =====
     function collectAllData() {
         return {
-            weekTasks: weekTasks,
+            weeklyData: weeklyData,
             reviewData: reviewData,
             lastSaved: new Date().toISOString()
         };
     }
     function applyData(data) {
-        if (data.weekTasks) { weekTasks = data.weekTasks; localStorage.setItem('beatrice_week_tasks', JSON.stringify(weekTasks)); }
+        if (data.weeklyData) {
+            weeklyData = data.weeklyData;
+            ensureCurrentWeek();
+            localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
+        } else if (data.weekTasks) {
+            // 自动迁移旧格式
+            const currentId = getCurrentWeekId();
+            weeklyData = { currentWeekId: currentId, weeks: {} };
+            weeklyData.weeks[currentId] = { tasks: JSON.parse(JSON.stringify(data.weekTasks)), createdAt: new Date().toISOString() };
+            localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
+        }
         if (data.reviewData) { reviewData = data.reviewData; localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData)); }
         renderWeekTasks();
+        renderWeekHistory();
         initReview();
     }
+    function verifyCurrentWeek() {
+        const currentId = getCurrentWeekId();
+        if (weeklyData.currentWeekId !== currentId && weeklyData.weeks[currentId]) {
+            weeklyData.currentWeekId = currentId;
+        }
+    }
+    function ensureCurrentWeek() {
+        const currentId = getCurrentWeekId();
+        if (weeklyData.currentWeekId !== currentId) {
+            if (!weeklyData.weeks[currentId]) {
+                // 从上一周复制任务模板
+                const prevWeek = weeklyData.weeks[weeklyData.currentWeekId];
+                const templates = (prevWeek && prevWeek.tasks && prevWeek.tasks.length > 0)
+                    ? prevWeek.tasks : defaultWeekTasks;
+                weeklyData.weeks[currentId] = {
+                    tasks: templates.map(cloneTaskForWeek),
+                    createdAt: new Date().toISOString()
+                };
+            }
+            weeklyData.currentWeekId = currentId;
+            saveLocal();
+        }
+    }
     function saveLocal() {
-        localStorage.setItem('beatrice_week_tasks', JSON.stringify(weekTasks));
+        localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
         localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
     }
 
     // ===== 初始化 =====
     document.addEventListener('DOMContentLoaded', async () => {
         updateDate();
-        // 加载本地数据
-        weekTasks = JSON.parse(localStorage.getItem('beatrice_week_tasks')) || defaultWeekTasks;
-        reviewData = JSON.parse(localStorage.getItem('beatrice_review_data')) || { months: [] };
+        // 加载每周数据（支持新旧格式迁移）
+        const savedWeekly = localStorage.getItem('beatrice_weekly_data');
+        const savedReview = localStorage.getItem('beatrice_review_data');
+        if (savedWeekly) {
+            weeklyData = JSON.parse(savedWeekly);
+            verifyCurrentWeek();
+            ensureCurrentWeek();
+        } else {
+            // 尝试迁移旧格式
+            const oldTasks = localStorage.getItem('beatrice_week_tasks');
+            if (oldTasks) {
+                weeklyData = { currentWeekId: getCurrentWeekId(), weeks: {} };
+                weeklyData.weeks[getCurrentWeekId()] = { tasks: JSON.parse(oldTasks), createdAt: new Date().toISOString() };
+                localStorage.removeItem('beatrice_week_tasks');
+                saveLocal();
+            } else {
+                ensureCurrentWeek();
+            }
+        }
+        reviewData = savedReview ? JSON.parse(savedReview) : { months: [] };
         renderWeekTasks();
+        renderWeekHistory();
         setupNavigation();
         renderHotSearch();
         initReview();
@@ -500,16 +590,19 @@
                 sections.forEach(s => s.classList.remove('active'));
                 document.getElementById(sec).classList.add('active');
                 document.getElementById('pageTitle').textContent = titles[sec].title;
-                document.getElementById('pageSubtitle').textContent = titles[sec].subtitle;
+                const subs = { weekly: '本周打卡（' + getWeekLabel(getCurrentWeekId()) + '）', douyin:titles.douyin.subtitle, review:titles.review.subtitle };
+                document.getElementById('pageSubtitle').textContent = subs[sec];
             });
         });
     }
 
     // ===== 每周计划 =====
     function renderWeekTasks() {
+        ensureCurrentWeek();
+        const tasks = getCurrentWeek().tasks;
         const list = document.getElementById('weekTaskList');
         list.innerHTML = '';
-        weekTasks.forEach(task => {
+        tasks.forEach(task => {
             const completed = task.days.filter(d => d).length;
             const item = document.createElement('div');
             item.className = 'week-task';
@@ -545,7 +638,7 @@
         scheduleCloudSync();
     }
     function toggleDay(taskId, dayIndex) {
-        const task = weekTasks.find(t => t.id === taskId);
+        const task = getCurrentWeek().tasks.find(t => t.id === taskId);
         if (!task) return;
         task.days[dayIndex] = !task.days[dayIndex];
         renderWeekTasks();
@@ -554,20 +647,86 @@
         const input = document.getElementById('newTaskInput');
         const freq = document.getElementById('newTaskFreq');
         if (!input.value.trim()) return;
-        weekTasks.push({ id:Date.now(), text:input.value.trim(), note:`每周${freq.value}次 · 自定义任务`, freq:parseInt(freq.value), tag:'work', tagText:'待办', days:[false,false,false,false,false,false,false] });
+        getCurrentWeek().tasks.push({ id:Date.now(), text:input.value.trim(), note:`每周${freq.value}次 · 自定义任务`, freq:parseInt(freq.value), tag:'work', tagText:'待办', days:[false,false,false,false,false,false,false] });
         input.value = '';
         renderWeekTasks();
     }
-    function deleteWeekTask(id) { weekTasks = weekTasks.filter(t => t.id !== id); renderWeekTasks(); }
+    function deleteWeekTask(id) {
+        getCurrentWeek().tasks = getCurrentWeek().tasks.filter(t => t.id !== id);
+        renderWeekTasks();
+    }
     function updateWeekProgress() {
+        const tasks = getCurrentWeek().tasks;
         let total = 0, done = 0;
-        weekTasks.forEach(t => { total += t.freq; done += t.days.filter(d => d).length; });
+        tasks.forEach(t => { total += t.freq; done += t.days.filter(d => d).length; });
         const pct = total === 0 ? 0 : Math.round(Math.min(100, (done/total)*100));
         const circle = document.getElementById('progressCircle');
         const r = 42, c = 2*Math.PI*r;
         circle.style.strokeDasharray = c;
         circle.style.strokeDashoffset = c - (pct/100)*c;
         document.getElementById('progressText').textContent = pct + '%';
+    }
+
+    function renderWeekHistory() {
+        const card = document.getElementById('weekHistoryCard');
+        const list = document.getElementById('weekHistoryList');
+        const past = getPastWeeks();
+        if (past.length === 0) { card.style.display = 'none'; return; }
+        card.style.display = 'block';
+        if (past.length === 0) { list.innerHTML = '<p style="padding:8px 0;">暂无历史记录</p>'; return; }
+        let html = '<table style="width:100%;border-collapse:collapse;">';
+        html += '<thead><tr style="border-bottom:2px solid var(--border);"><th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);">周</th><th style="text-align:center;padding:10px 8px;font-size:12px;color:var(--text-secondary);">完成度</th><th style="text-align:right;padding:10px 12px;font-size:12px;color:var(--text-secondary);">任务总览</th></tr></thead><tbody>';
+        past.forEach(weekId => {
+            const week = weeklyData.weeks[weekId];
+            if (!week || !week.tasks) return;
+            let total = 0, done = 0;
+            week.tasks.forEach(t => { total += t.freq; done += t.days.filter(d => d).length; });
+            const pct = total === 0 ? 0 : Math.round(Math.min(100, (done/total)*100));
+            const pctColor = pct >= 80 ? 'var(--success)' : pct >= 50 ? '#f9a825' : 'var(--text-secondary)';
+            const taskList = week.tasks.map(t => {
+                const c = t.days.filter(d=>d).length;
+                const tpct = Math.round(Math.min(100,(c/t.freq)*100));
+                return `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:10px;font-size:11px;background:${tpct>=80?'var(--primary-light)':tpct>=50?'#fffde7':'#f5f5f5'};color:${tpct>=80?'var(--primary)':tpct>=50?'#f9a825':'var(--text-secondary)'};">${t.text} ${tpct}%</span>`;
+            }).join('');
+            html += `<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="viewPastWeek('${weekId}')">
+                <td style="padding:10px 12px;font-weight:600;">${getWeekLabel(weekId)}</td>
+                <td style="text-align:center;padding:10px 8px;"><span style="display:inline-block;width:40px;height:24px;line-height:24px;border-radius:12px;background:${pctColor};color:white;font-size:11px;font-weight:700;">${pct}%</span></td>
+                <td style="text-align:right;padding:10px 12px;">${taskList}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        list.innerHTML = html;
+    }
+
+    function viewPastWeek(weekId) {
+        const week = weeklyData.weeks[weekId];
+        if (!week) return;
+        // 在弹出层中显示过去的任务
+        const tasks = week.tasks;
+        let detailHtml = `<h3 style="margin-bottom:12px;">📅 ${getWeekLabel(weekId)} 打卡详情</h3>`;
+        tasks.forEach(t => {
+            const completed = t.days.filter(d => d).length;
+            const pct = Math.round(Math.min(100, (completed/t.freq)*100));
+            const dayBar = DAY_LABELS.map((l, i) => {
+                const c = t.days[i] ? 'background:var(--success);color:white;' : 'background:#f0f0f0;color:var(--text-secondary);';
+                return `<div style="flex:1;height:28px;line-height:28px;text-align:center;border-radius:6px;margin:0 2px;font-size:11px;${c}">${t.days[i]?'✓':l}</div>`;
+            }).join('');
+            detailHtml += `<div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong>${t.text}</strong> <span style="font-size:12px;color:var(--text-secondary);">${completed}/${t.freq} · ${pct}%</span></div>
+                <div style="display:flex;">${dayBar}</div></div>`;
+        });
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;';
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'background:white;border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+        dialog.innerHTML = detailHtml;
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '关闭';
+        closeBtn.style.cssText = 'margin-top:16px;padding:10px 24px;background:var(--primary);color:white;border:none;border-radius:10px;font-size:14px;cursor:pointer;width:100%;';
+        closeBtn.onclick = () => overlay.remove();
+        dialog.appendChild(closeBtn);
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
     }
 
     // ===== 抖音热点 =====
@@ -943,7 +1102,7 @@
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                if (!data.weekTasks && !data.reviewData) { alert('❌ 文件格式不正确'); return; }
+                if (!data.weeklyData && !data.weekTasks && !data.reviewData) { alert('❌ 文件格式不正确'); return; }
                 if (confirm('导入将覆盖当前数据，确定？')) {
                     applyData(data);
                     scheduleCloudSync();
@@ -962,7 +1121,7 @@
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js').then(() => {
+            navigator.serviceWorker.register('./sw.js').then(() => {
                 console.log('SW registered');
             }).catch((err) => {
                 console.log('SW failed:', err);
