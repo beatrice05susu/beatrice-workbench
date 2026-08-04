@@ -285,7 +285,6 @@
             <nav class="nav-menu">
                 <div class="nav-item active" data-section="weekly"><div class="nav-icon">📋</div><div class="nav-text">每周计划</div></div>
                 <div class="nav-item" data-section="douyin"><div class="nav-icon">🔥</div><div class="nav-text">抖音爆款热点</div></div>
-                <div class="nav-item" data-section="review"><div class="nav-icon">📊</div><div class="nav-text">团队月度复盘</div></div>
             </nav>
             <div class="sidebar-footer">
                 <div class="sync-panel" id="syncPanel">
@@ -360,97 +359,7 @@
                         </div>
                     </div>
                 </section>
-
-                <!-- 团队复盘 -->
-                <section class="content-section" id="review">
-                    <!-- 月份选择 -->
-                    <div class="card">
-                        <div class="review-month-bar">
-                            <select id="reviewMonthSelect" onchange="switchReviewMonth(this.value)"></select>
-                            <button class="month-btn add" onclick="addReviewMonth()">+ 添加月份</button>
-                            <button class="month-btn del" onclick="deleteReviewMonth()">删除当前月</button>
-                        </div>
-                    </div>
-
-                    <!-- 店铺切换 -->
-                    <div class="card">
-                        <div class="store-tabs" id="storeTabs"></div>
-                    </div>
-
-                    <!-- 1. 数据表现 -->
-                    <div class="card">
-                        <div class="card-title"><span class="step-num">1</span> 数据表现</div>
-                        <div class="data-metrics">
-                            <div class="metric-item">
-                                <label>店铺总GMV</label>
-                                <div class="input-wrap"><span class="prefix">¥</span><input type="number" id="shopGMV" placeholder="0" oninput="saveReviewField('shopGMV',this.value);updateReviewCalc()"></div>
-                            </div>
-                            <div class="metric-item">
-                                <label>达播总GMV</label>
-                                <div class="input-wrap"><span class="prefix">¥</span><input type="number" id="daboGMV" placeholder="0" oninput="saveReviewField('daboGMV',this.value);updateReviewCalc()"></div>
-                            </div>
-                            <div class="metric-item">
-                                <label>达播总GSV</label>
-                                <div class="input-wrap"><span class="prefix">¥</span><input type="number" id="daboGSV" placeholder="0" oninput="saveReviewField('daboGSV',this.value)"></div>
-                            </div>
-                            <div class="metric-item">
-                                <label>达播总GSV费比</label>
-                                <div class="input-wrap"><input type="number" id="daboGSVRatio" placeholder="0" step="0.1" oninput="saveReviewField('daboGSVRatio',this.value)"><span class="suffix">%</span></div>
-                            </div>
-                        </div>
-                        <div class="top5-section">
-                            <h5>🏆 产出TOP5达人</h5>
-                            <table class="top5-table">
-                                <thead><tr><th>#</th><th>达人名字</th><th>GMV</th><th>GMV费比</th></tr></thead>
-                                <tbody id="top5Body"></tbody>
-                            </table>
-                        </div>
-                        <div class="top5-section">
-                            <h5>🎬 产出TOP5引流素材</h5>
-                            <div class="top5-table-wrap">
-                            <table class="top5-table wrap-table">
-                                <thead><tr><th>#</th><th>引流素材</th><th>对应达人</th><th>素材GMV</th><th>整场直播GMV</th><th>产出占比</th><th>投放ROI</th></tr></thead>
-                                <tbody id="top5MatBody"></tbody>
-                            </table>
-                            </div>
-                        </div>
-                        <div class="calc-summary">
-                            <h5>⚡ 自动汇总</h5>
-                            <div class="calc-grid">
-                                <div class="calc-item"><span class="calc-label">TOP5达人总GMV</span><span class="calc-value" id="calcTop5Total">¥0</span></div>
-                                <div class="calc-item"><span class="calc-label">TOP5达人平均GMV</span><span class="calc-value" id="calcTop5Avg">¥0</span></div>
-                                <div class="calc-item"><span class="calc-label">TOP5达人占达播GMV比</span><span class="calc-value" id="calcTop5Ratio">0%</span></div>
-                                <div class="calc-item"><span class="calc-label">达播占店铺GMV比</span><span class="calc-value" id="calcDaboShopRatio">0%</span></div>
-                                <div class="calc-item"><span class="calc-label">TOP5素材总GMV</span><span class="calc-value" id="calcMatTotal">¥0</span></div>
-                                <div class="calc-item"><span class="calc-label">TOP5素材平均产出占比</span><span class="calc-value" id="calcMatAvgRatio">0%</span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2. 亮点 -->
-                    <div class="review-card">
-                        <h4><span class="step-num">2</span> 亮点</h4>
-                        <textarea id="reviewWins" placeholder="本月团队最有成就感的事、做得好的地方..." oninput="saveReviewField('wins',this.value)"></textarea>
-                    </div>
-                    <!-- 3. 不足 -->
-                    <div class="review-card">
-                        <h4><span class="step-num">3</span> 不足</h4>
-                        <textarea id="reviewIssues" placeholder="哪些地方没达到预期？原因是什么？" oninput="saveReviewField('issues',this.value)"></textarea>
-                    </div>
-                    <!-- 4. 下月计划 -->
-                    <div class="review-card">
-                        <h4><span class="step-num">4</span> 下月计划</h4>
-                        <textarea id="reviewPlans" placeholder="下个月最重要的3件事、具体行动..." oninput="saveReviewField('plans',this.value)"></textarea>
-                    </div>
-
-                    <!-- 历史对比 -->
-                    <div class="card" id="historyCard" style="display:none;">
-                        <div class="card-title">📈 历史数据对比</div>
-                        <div style="overflow-x:auto;"><table class="history-table" id="historyTable"></table></div>
-                    </div>
-
-                    <button class="save-review" onclick="saveReviewAll()">💾 保存复盘内容</button>
-                </section>
+            </div>
             </div>
         </main>
     </div>
@@ -466,7 +375,8 @@
         { id:3, text:'普拉提课', note:'每周2次 · 核心力量 + 体态调整', freq:2, tag:'sport', tagText:'运动', days:[false,false,false,false,false,false,false] },
         { id:4, text:'肩背训练', note:'每日早晨或下班时间 · 改善体态，缓解久坐疲劳', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] },
         { id:5, text:'地诺孕素', note:'每日服用 · 遵医嘱按时服药', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] },
-        { id:6, text:'磷虾油', note:'每日服用 · 补充Omega-3', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] }
+        { id:6, text:'磷虾油', note:'每日服用 · 补充Omega-3', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] },
+        { id:7, text:'背单词', note:'每日打卡 · 每天10-15个新单词', freq:7, tag:'study', tagText:'学习', days:[false,false,false,false,false,false,false] }
     ];
 
     // ===== 周管理 =====
@@ -490,109 +400,7 @@
     }
 
     let weeklyData = { currentWeekId: getCurrentWeekId(), weeks: {} };
-    let reviewData = { currentMonthId: getCurrentMonthId(), currentStoreId: 'movefree', months: {} };
     let syncTimer = null;
-
-    // 店铺定义
-    const STORES = [
-        { id: 'movefree', name: 'MoveFree益节', shortName: '益节', emoji: '🚢', color: '#16a34a' },
-        { id: 'megared-q10', name: 'MegaRed辅酶Q10', shortName: '辅酶Q10', emoji: '💊', color: '#ea580c' },
-        { id: 'megared-krill', name: 'MegaRed磷虾油', shortName: '磷虾油', emoji: '🐟', color: '#2563eb' }
-    ];
-    function makeEmptyStore() {
-        return {
-            shopGMV: '', daboGMV: '', daboGSV: '', daboGSVRatio: '',
-            top5: Array.from({ length: 5 }, () => ({ name: '', gmv: '', gmvRatio: '' })),
-            top5Mat: Array.from({ length: 5 }, () => ({ material: '', talent: '', gmv: '', liveGmv: '', roi: '' })),
-            wins: '', issues: '', plans: ''
-        };
-    }
-
-    // ===== 月管理 =====
-    function getCurrentMonthId() {
-        const now = new Date();
-        return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    }
-    function getMonthLabel(monthId) {
-        const [y, m] = monthId.split('-');
-        return y + '年' + parseInt(m) + '月';
-    }
-    function getCurrentMonth() {
-        if (!reviewData.months[reviewData.currentMonthId]) {
-            reviewData.months[reviewData.currentMonthId] = makeEmptyMonth(reviewData.currentMonthId);
-        }
-        return reviewData.months[reviewData.currentMonthId];
-    }
-    function makeEmptyMonth(monthId) {
-        const stores = {};
-        STORES.forEach(s => { stores[s.id] = makeEmptyStore(); });
-        return {
-            id: monthId,
-            label: getMonthLabel(monthId),
-            stores: stores,
-            createdAt: new Date().toISOString()
-        };
-    }
-    function getPastMonths() {
-        return Object.keys(reviewData.months)
-            .filter(m => m !== reviewData.currentMonthId)
-            .sort((a, b) => b.localeCompare(a));
-    }
-    function ensureCurrentMonth() {
-        const currentId = getCurrentMonthId();
-        if (reviewData.currentMonthId !== currentId) {
-            reviewData.currentMonthId = currentId;
-            if (!reviewData.months[currentId]) {
-                reviewData.months[currentId] = makeEmptyMonth(currentId);
-            }
-            saveLocal();
-        }
-    }
-    function getMonthReview(monthId) {
-        return reviewData.months[monthId];
-    }
-
-    function getCurrentStore() {
-        const m = getCurrentMonth();
-        if (!m) return null;
-        if (!m.stores) { migrateMonthToStores(m); }
-        if (!m.stores[reviewData.currentStoreId]) {
-            m.stores[reviewData.currentStoreId] = makeEmptyStore();
-        }
-        return m.stores[reviewData.currentStoreId];
-    }
-    function getMonthStore(monthId, storeId) {
-        const m = reviewData.months[monthId];
-        if (!m) return null;
-        if (!m.stores) { migrateMonthToStores(m); }
-        return m.stores[storeId] || null;
-    }
-    function migrateMonthToStores(m) {
-        // 把旧扁平字段迁移到 movefree 店铺
-        m.stores = {};
-        STORES.forEach(s => {
-            m.stores[s.id] = (s.id === 'movefree')
-                ? {
-                    shopGMV: m.shopGMV || '', daboGMV: m.daboGMV || '', daboGSV: m.daboGSV || '', daboGSVRatio: m.daboGSVRatio || '',
-                    top5: m.top5 || Array.from({ length: 5 }, () => ({ name: '', gmv: '', gmvRatio: '' })),
-                    top5Mat: m.top5Mat || Array.from({ length: 5 }, () => ({ material: '', talent: '', gmv: '', liveGmv: '', roi: '' })),
-                    wins: m.wins || '', issues: m.issues || '', plans: m.plans || ''
-                }
-                : makeEmptyStore();
-        });
-        // 清理旧字段
-        ['shopGMV','daboGMV','daboGSV','daboGSVRatio','top5','top5Mat','wins','issues','plans'].forEach(k => delete m[k]);
-    }
-
-    function switchStore(storeId) {
-        reviewData.currentStoreId = storeId;
-        saveLocal();
-        // 更新副标题
-        const store = STORES.find(s => s.id === storeId);
-        document.getElementById('pageSubtitle').textContent = '每月总结 · ' + (store ? store.name : '') + ' · 持续优化成长';
-        loadReviewMonth(reviewData.currentMonthId);
-        renderHistoryTable();
-    }
 
     function getCurrentWeek() {
         if (!weeklyData.weeks[weeklyData.currentWeekId]) {
@@ -610,7 +418,6 @@
     function collectAllData() {
         return {
             weeklyData: weeklyData,
-            reviewData: reviewData,
             lastSaved: new Date().toISOString()
         };
     }
@@ -626,29 +433,8 @@
             weeklyData.weeks[currentId] = { tasks: JSON.parse(JSON.stringify(data.weekTasks)), createdAt: new Date().toISOString() };
             localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
         }
-        if (data.reviewData) {
-            // 兼容旧格式（months 是数组）
-            if (Array.isArray(data.reviewData.months)) {
-                const oldMonths = data.reviewData.months;
-                reviewData = { currentMonthId: getCurrentMonthId(), currentStoreId: 'movefree', months: {} };
-                oldMonths.forEach(m => {
-                    reviewData.months[m.id] = { ...m, createdAt: m.createdAt || new Date().toISOString() };
-                });
-                ensureCurrentMonth();
-            } else {
-                reviewData = data.reviewData;
-                if (!reviewData.currentStoreId) reviewData.currentStoreId = 'movefree';
-                ensureCurrentMonth();
-            }
-            // 确保旧月份有 stores 结构
-            Object.values(reviewData.months).forEach(m => {
-                if (!m.stores) migrateMonthToStores(m);
-            });
-            localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
-        }
         renderWeekTasks();
         renderWeekHistory();
-        initReview();
     }
     function verifyCurrentWeek() {
         const currentId = getCurrentWeekId();
@@ -676,7 +462,6 @@
     }
     function saveLocal() {
         localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
-        localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
     }
     function mergeMissingDefaults() {
         // 把 defaultWeekTasks 里缺失的默认任务补到当前周
@@ -697,7 +482,6 @@
         updateDate();
         // 加载每周数据（支持新旧格式迁移）
         const savedWeekly = localStorage.getItem('beatrice_weekly_data');
-        const savedReview = localStorage.getItem('beatrice_review_data');
         if (savedWeekly) {
             weeklyData = JSON.parse(savedWeekly);
             verifyCurrentWeek();
@@ -715,31 +499,10 @@
                 ensureCurrentWeek();
             }
         }
-        // 加载复盘数据（支持旧格式迁移）
-        if (savedReview) {
-            const parsed = JSON.parse(savedReview);
-            if (Array.isArray(parsed.months)) {
-                // 旧格式：months 是数组
-                reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
-                parsed.months.forEach(m => { reviewData.months[m.id] = { ...m, createdAt: m.createdAt || new Date().toISOString() }; });
-                ensureCurrentMonth();
-                saveLocal();
-            } else if (parsed.months && typeof parsed.months === 'object') {
-                reviewData = parsed;
-                ensureCurrentMonth();
-            } else {
-                reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
-                ensureCurrentMonth();
-            }
-        } else {
-            reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
-            ensureCurrentMonth();
-        }
         renderWeekTasks();
         renderWeekHistory();
         setupNavigation();
         loadHotSearch();
-        initReview();
         // 云同步
         initCloudUI();
         const cloudId = localStorage.getItem('beatrice_cloud_id');
@@ -756,8 +519,7 @@
         const sections = document.querySelectorAll('.content-section');
         const titles = {
             weekly: { title:'每周计划', subtitle:'本周打卡进度，养成好习惯' },
-            douyin: { title:'抖音爆款热点视频', subtitle:'捕捉热点，激发创作灵感' },
-            review: { title:'团队月度复盘', subtitle:'每月总结，持续优化成长' }
+            douyin: { title:'抖音爆款热点视频', subtitle:'捕捉热点，激发创作灵感' }
         };
         navItems.forEach(item => {
             item.addEventListener('click', () => {
@@ -767,8 +529,7 @@
                 sections.forEach(s => s.classList.remove('active'));
                 document.getElementById(sec).classList.add('active');
                 document.getElementById('pageTitle').textContent = titles[sec].title;
-                const subs = { weekly: '本周打卡（' + getWeekLabel(getCurrentWeekId()) + '）', douyin:titles.douyin.subtitle, review:'每月总结 · ' + (STORES.find(s=>s.id===reviewData.currentStoreId) || STORES[0]).name + ' · 持续优化成长' };
-                document.getElementById('pageSubtitle').textContent = subs[sec];
+                document.getElementById('pageSubtitle').textContent = titles[sec].subtitle;
             });
         });
     }
@@ -962,240 +723,6 @@
                 '<div class="hot-meta">🔥 ' + (t.heat || '') + (t.videos ? ' · ' + t.videos.length + '个热门视频' : '') + '</div>' + videosHtml;
             grid.appendChild(card);
         });
-    }
-
-    // ===== 团队复盘 =====
-    function initReview() {
-        ensureCurrentMonth();
-        renderMonthSelector();
-        renderStoreTabs();
-        loadReviewMonth(reviewData.currentMonthId);
-        renderHistoryTable();
-    }
-
-    function renderMonthSelector() {
-        const sel = document.getElementById('reviewMonthSelect');
-        sel.innerHTML = '';
-        const sortedIds = Object.keys(reviewData.months).sort((a, b) => b.localeCompare(a));
-        sortedIds.forEach(id => {
-            const m = reviewData.months[id];
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = m.label;
-            if (m.id === reviewData.currentMonthId) opt.selected = true;
-            sel.appendChild(opt);
-        });
-    }
-
-    function addReviewMonth() {
-        const id = prompt('输入月份（格式：YYYY-MM，如 2026-07）：', new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
-        if (!id) return;
-        if (reviewData.months[id]) { alert('该月份已存在'); return; }
-        reviewData.months[id] = makeEmptyMonth(id);
-        reviewData.currentMonthId = id;
-        saveLocal();
-        renderMonthSelector();
-        loadReviewMonth(id);
-        renderHistoryTable();
-        scheduleCloudSync();
-    }
-
-    function deleteReviewMonth() {
-        const ids = Object.keys(reviewData.months);
-        if (ids.length <= 1) { alert('至少保留一个月'); return; }
-        const cid = reviewData.currentMonthId;
-        if (!confirm('确定删除「' + reviewData.months[cid].label + '」？此操作不可撤销。')) return;
-        delete reviewData.months[cid];
-        reviewData.currentMonthId = ids.sort((a, b) => b.localeCompare(a)).find(id => id !== cid) || ids[0];
-        saveLocal();
-        renderMonthSelector();
-        loadReviewMonth(reviewData.currentMonthId);
-        renderHistoryTable();
-        scheduleCloudSync();
-    }
-
-    function switchReviewMonth(monthId) {
-        reviewData.currentMonthId = monthId;
-        loadReviewMonth(monthId);
-    }
-
-    function loadReviewMonth(monthId) {
-        const m = reviewData.months[monthId];
-        if (!m) return;
-        reviewData.currentMonthId = monthId;
-        renderMonthSelector();
-        renderStoreTabs();
-        if (!m.stores) { migrateMonthToStores(m); }
-        const s = m.stores[reviewData.currentStoreId] || makeEmptyStore();
-        document.getElementById('shopGMV').value = s.shopGMV || '';
-        document.getElementById('daboGMV').value = s.daboGMV || '';
-        document.getElementById('daboGSV').value = s.daboGSV || '';
-        document.getElementById('daboGSVRatio').value = s.daboGSVRatio || '';
-        document.getElementById('reviewWins').value = s.wins || '';
-        document.getElementById('reviewIssues').value = s.issues || '';
-        document.getElementById('reviewPlans').value = s.plans || '';
-        // TOP5
-        const tbody = document.getElementById('top5Body');
-        tbody.innerHTML = '';
-        for (let i = 0; i < 5; i++) {
-            const t = s.top5[i] || { name:'', gmv:'', gmvRatio:'' };
-            const tr = document.createElement('tr');
-            tr.innerHTML = '<td>' + (i+1) + '</td>' +
-                '<td><input type="text" value="' + (t.name||'') + '" placeholder="达人名字" oninput="saveTop5Field(' + i + ',\'name\',this.value)"></td>' +
-                '<td><input type="number" class="top5-rank-input" value="' + (t.gmv||'') + '" placeholder="0" oninput="saveTop5Field(' + i + ',\'gmv\',this.value);updateReviewCalc()"></td>' +
-                '<td><input type="number" class="top5-rank-input" value="' + (t.gmvRatio||'') + '" placeholder="0" step="0.1" oninput="saveTop5Field(' + i + ',\'gmvRatio\',this.value)"><span style="font-size:12px;color:#999;margin-left:4px;">%</span></td>';
-            tbody.appendChild(tr);
-        }
-        // TOP5 引流素材
-        const matBody = document.getElementById('top5MatBody');
-        matBody.innerHTML = '';
-        for (let i = 0; i < 5; i++) {
-            const t = (s.top5Mat && s.top5Mat[i]) || { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
-            const ratio = (parseFloat(t.gmv) && parseFloat(t.liveGmv)) ? ((parseFloat(t.gmv) / parseFloat(t.liveGmv)) * 100).toFixed(1) + '%' : '-';
-            const ratioClass = ratio === '-' ? 'calc-cell zero' : 'calc-cell';
-            const tr = document.createElement('tr');
-            tr.innerHTML = '<td>' + (i+1) + '</td>' +
-                '<td><input type="text" value="' + (t.material||'') + '" placeholder="素材名称" oninput="saveTop5MatField(' + i + ',\'material\',this.value)"></td>' +
-                '<td><input type="text" value="' + (t.talent||'') + '" placeholder="达人名字" oninput="saveTop5MatField(' + i + ',\'talent\',this.value)"></td>' +
-                '<td><input type="number" value="' + (t.gmv||'') + '" placeholder="0" oninput="saveTop5MatField(' + i + ',\'gmv\',this.value);updateReviewCalc()"></td>' +
-                '<td><input type="number" value="' + (t.liveGmv||'') + '" placeholder="0" oninput="saveTop5MatField(' + i + ',\'liveGmv\',this.value);updateReviewCalc()"></td>' +
-                '<td class="' + ratioClass + '" id="matRatio-' + i + '">' + ratio + '</td>' +
-                '<td><input type="number" value="' + (t.roi||'') + '" placeholder="如有" step="0.01" oninput="saveTop5MatField(' + i + ',\'roi\',this.value)"></td>';
-            matBody.appendChild(tr);
-        }
-        updateReviewCalc();
-    }
-
-    function saveReviewField(field, value) {
-        const s = getCurrentStore();
-        if (!s) return;
-        s[field] = value;
-        saveLocal();
-        scheduleCloudSync();
-    }
-
-    function saveTop5Field(index, field, value) {
-        const s = getCurrentStore();
-        if (!s) return;
-        if (!s.top5[index]) s.top5[index] = { name:'', gmv:'', gmvRatio:'' };
-        s.top5[index][field] = value;
-        saveLocal();
-        scheduleCloudSync();
-    }
-
-    function saveTop5MatField(index, field, value) {
-        const s = getCurrentStore();
-        if (!s) return;
-        if (!s.top5Mat) s.top5Mat = Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' }));
-        if (!s.top5Mat[index]) s.top5Mat[index] = { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
-        s.top5Mat[index][field] = value;
-        if (field === 'gmv' || field === 'liveGmv') {
-            const gmv = parseFloat(s.top5Mat[index].gmv) || 0;
-            const liveGmv = parseFloat(s.top5Mat[index].liveGmv) || 0;
-            const cell = document.getElementById('matRatio-' + index);
-            if (cell) {
-                if (gmv > 0 && liveGmv > 0) {
-                    cell.textContent = (gmv / liveGmv * 100).toFixed(1) + '%';
-                    cell.classList.remove('zero');
-                } else {
-                    cell.textContent = '-';
-                    cell.classList.add('zero');
-                }
-            }
-        }
-        saveLocal();
-        scheduleCloudSync();
-    }
-
-    function fmtMoney(n) {
-        n = parseFloat(n);
-        if (!n || isNaN(n)) return '¥0';
-        return '¥' + n.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
-    }
-    function fmtPct(n) {
-        n = parseFloat(n);
-        if (!n || isNaN(n)) return '0%';
-        return n.toFixed(1) + '%';
-    }
-
-    function updateReviewCalc() {
-        const s = getCurrentStore();
-        if (!s) return;
-        const top5GMV = s.top5.reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
-        const daboGMV = parseFloat(s.daboGMV) || 0;
-        const shopGMV = parseFloat(s.shopGMV) || 0;
-        document.getElementById('calcTop5Total').textContent = fmtMoney(top5GMV);
-        document.getElementById('calcTop5Avg').textContent = fmtMoney(top5GMV / 5);
-        document.getElementById('calcTop5Ratio').textContent = daboGMV > 0 ? fmtPct((top5GMV / daboGMV) * 100) : '0%';
-        document.getElementById('calcDaboShopRatio').textContent = shopGMV > 0 ? fmtPct((daboGMV / shopGMV) * 100) : '0%';
-        if (s.top5Mat) {
-            const matGMV = s.top5Mat.reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
-            const ratios = s.top5Mat.filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0)
-                                    .map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
-            const avgRatio = ratios.length > 0 ? (ratios.reduce((s, r) => s + r, 0) / ratios.length * 100) : 0;
-            const elMatTotal = document.getElementById('calcMatTotal');
-            const elMatAvg = document.getElementById('calcMatAvgRatio');
-            if (elMatTotal) elMatTotal.textContent = fmtMoney(matGMV);
-            if (elMatAvg) elMatAvg.textContent = fmtPct(avgRatio);
-        }
-    }
-
-    function renderHistoryTable() {
-        const card = document.getElementById('historyCard');
-        const table = document.getElementById('historyTable');
-        const pastIds = getPastMonths();
-        const allIds = [reviewData.currentMonthId].concat(pastIds);
-        if (allIds.length === 0) { card.style.display = 'none'; return; }
-        card.style.display = 'block';
-        let html = '<thead><tr><th>月份</th><th>店铺</th><th>店铺总GMV</th><th>达播总GMV</th><th>达播总GSV</th><th>GSV费比</th><th>TOP5达人GMV</th><th>TOP5占达播比</th><th>TOP5素材GMV</th><th>素材平均产出占比</th></tr></thead><tbody>';
-        allIds.forEach(monthId => {
-            const m = reviewData.months[monthId];
-            if (!m) return;
-            if (!m.stores) { migrateMonthToStores(m); }
-            STORES.forEach(store => {
-                const s = m.stores[store.id];
-                if (!s) return;
-                const top5GMV = (s.top5 || []).reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
-                const daboGMV = parseFloat(s.daboGMV) || 0;
-                const top5Ratio = daboGMV > 0 ? ((top5GMV / daboGMV) * 100).toFixed(1) + '%' : '-';
-                const matGMV = (s.top5Mat || []).reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
-                const matRatios = (s.top5Mat || []).filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0).map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
-                const matAvgRatio = matRatios.length > 0 ? (matRatios.reduce((sum, r) => sum + r, 0) / matRatios.length * 100).toFixed(1) + '%' : '-';
-                const isCurrent = (monthId === reviewData.currentMonthId && store.id === reviewData.currentStoreId);
-                html += '<tr style="' + (isCurrent ? 'background:var(--accent-light);' : '') + 'cursor:pointer;" onclick="switchReviewMonth(\'' + monthId + '\');switchStore(\'' + store.id + '\');document.querySelector(\'.nav-item[data-section=review]\').click();">' +
-                    '<td>' + m.label + '</td>' +
-                    '<td>' + store.emoji + ' ' + store.shortName + '</td>' +
-                    '<td>' + fmtMoney(s.shopGMV) + '</td>' +
-                    '<td>' + fmtMoney(s.daboGMV) + '</td>' +
-                    '<td>' + fmtMoney(s.daboGSV) + '</td>' +
-                    '<td>' + (s.daboGSVRatio ? s.daboGSVRatio + '%' : '-') + '</td>' +
-                    '<td>' + fmtMoney(top5GMV) + '</td>' +
-                    '<td>' + top5Ratio + '</td>' +
-                    '<td>' + fmtMoney(matGMV) + '</td>' +
-                    '<td>' + matAvgRatio + '</td></tr>';
-            });
-        });
-        html += '</tbody>';
-        table.innerHTML = html;
-    }
-
-    function renderStoreTabs() {
-        const container = document.getElementById('storeTabs');
-        container.innerHTML = '';
-        STORES.forEach(s => {
-            const btn = document.createElement('button');
-            btn.className = 'store-tab' + (s.id === reviewData.currentStoreId ? ' active' : '');
-            btn.textContent = s.emoji + ' ' + s.shortName;
-            btn.onclick = function() { switchStore(s.id); };
-            container.appendChild(btn);
-        });
-    }
-
-    function saveReviewAll() {
-        saveLocal();
-        scheduleCloudSync();
-        renderHistoryTable();
-        alert('复盘内容已保存 ✓');
     }
 
     // ===== 云端同步 =====
