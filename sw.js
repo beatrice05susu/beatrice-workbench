@@ -1,4 +1,4 @@
-const CACHE_NAME = 'beatrice-workbench-v6';
+const CACHE_NAME = 'beatrice-workbench-v7';
 const ASSETS = [
   './',
   './index.html',
