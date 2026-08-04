@@ -168,6 +168,12 @@
         .month-btn.del { background: #ffebee; color: var(--danger); }
         .month-btn.del:hover { background: #ffcdd2; }
 
+        /* 店铺切换 */
+        .store-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+        .store-tab { flex:1; min-width:140px; padding:12px 16px; border:2px solid var(--border); border-radius:12px; background:var(--bg-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; color:var(--text-secondary); text-align:center; }
+        .store-tab:hover { border-color:var(--accent); color:var(--accent); }
+        .store-tab.active { border-color:var(--accent); background:var(--accent-light); color:var(--accent); }
+
         /* 数据指标输入 */
         .data-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
         .metric-item label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
@@ -366,6 +372,11 @@
                         </div>
                     </div>
 
+                    <!-- 店铺切换 -->
+                    <div class="card">
+                        <div class="store-tabs" id="storeTabs"></div>
+                    </div>
+
                     <!-- 1. 数据表现 -->
                     <div class="card">
                         <div class="card-title"><span class="step-num">1</span> 数据表现</div>
@@ -479,8 +490,23 @@
     }
 
     let weeklyData = { currentWeekId: getCurrentWeekId(), weeks: {} };
-    let reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
+    let reviewData = { currentMonthId: getCurrentMonthId(), currentStoreId: 'movefree', months: {} };
     let syncTimer = null;
+
+    // 店铺定义
+    const STORES = [
+        { id: 'movefree', name: 'MoveFree益节', shortName: '益节', emoji: '🚢', color: '#16a34a' },
+        { id: 'megared-q10', name: 'MegaRed辅酶Q10', shortName: '辅酶Q10', emoji: '💊', color: '#ea580c' },
+        { id: 'megared-krill', name: 'MegaRed磷虾油', shortName: '磷虾油', emoji: '🐟', color: '#2563eb' }
+    ];
+    function makeEmptyStore() {
+        return {
+            shopGMV: '', daboGMV: '', daboGSV: '', daboGSVRatio: '',
+            top5: Array.from({ length: 5 }, () => ({ name: '', gmv: '', gmvRatio: '' })),
+            top5Mat: Array.from({ length: 5 }, () => ({ material: '', talent: '', gmv: '', liveGmv: '', roi: '' })),
+            wins: '', issues: '', plans: ''
+        };
+    }
 
     // ===== 月管理 =====
     function getCurrentMonthId() {
@@ -498,13 +524,12 @@
         return reviewData.months[reviewData.currentMonthId];
     }
     function makeEmptyMonth(monthId) {
+        const stores = {};
+        STORES.forEach(s => { stores[s.id] = makeEmptyStore(); });
         return {
             id: monthId,
             label: getMonthLabel(monthId),
-            shopGMV: '', daboGMV: '', daboGSV: '', daboGSVRatio: '',
-            top5: Array.from({ length: 5 }, () => ({ name: '', gmv: '', gmvRatio: '' })),
-            top5Mat: Array.from({ length: 5 }, () => ({ material: '', talent: '', gmv: '', liveGmv: '', roi: '' })),
-            wins: '', issues: '', plans: '',
+            stores: stores,
             createdAt: new Date().toISOString()
         };
     }
@@ -525,6 +550,48 @@
     }
     function getMonthReview(monthId) {
         return reviewData.months[monthId];
+    }
+
+    function getCurrentStore() {
+        const m = getCurrentMonth();
+        if (!m) return null;
+        if (!m.stores) { migrateMonthToStores(m); }
+        if (!m.stores[reviewData.currentStoreId]) {
+            m.stores[reviewData.currentStoreId] = makeEmptyStore();
+        }
+        return m.stores[reviewData.currentStoreId];
+    }
+    function getMonthStore(monthId, storeId) {
+        const m = reviewData.months[monthId];
+        if (!m) return null;
+        if (!m.stores) { migrateMonthToStores(m); }
+        return m.stores[storeId] || null;
+    }
+    function migrateMonthToStores(m) {
+        // 把旧扁平字段迁移到 movefree 店铺
+        m.stores = {};
+        STORES.forEach(s => {
+            m.stores[s.id] = (s.id === 'movefree')
+                ? {
+                    shopGMV: m.shopGMV || '', daboGMV: m.daboGMV || '', daboGSV: m.daboGSV || '', daboGSVRatio: m.daboGSVRatio || '',
+                    top5: m.top5 || Array.from({ length: 5 }, () => ({ name: '', gmv: '', gmvRatio: '' })),
+                    top5Mat: m.top5Mat || Array.from({ length: 5 }, () => ({ material: '', talent: '', gmv: '', liveGmv: '', roi: '' })),
+                    wins: m.wins || '', issues: m.issues || '', plans: m.plans || ''
+                }
+                : makeEmptyStore();
+        });
+        // 清理旧字段
+        ['shopGMV','daboGMV','daboGSV','daboGSVRatio','top5','top5Mat','wins','issues','plans'].forEach(k => delete m[k]);
+    }
+
+    function switchStore(storeId) {
+        reviewData.currentStoreId = storeId;
+        saveLocal();
+        // 更新副标题
+        const store = STORES.find(s => s.id === storeId);
+        document.getElementById('pageSubtitle').textContent = '每月总结 · ' + (store ? store.name : '') + ' · 持续优化成长';
+        loadReviewMonth(reviewData.currentMonthId);
+        renderHistoryTable();
     }
 
     function getCurrentWeek() {
@@ -563,15 +630,20 @@
             // 兼容旧格式（months 是数组）
             if (Array.isArray(data.reviewData.months)) {
                 const oldMonths = data.reviewData.months;
-                reviewData = { currentMonthId: getCurrentMonthId(), months: {} };
+                reviewData = { currentMonthId: getCurrentMonthId(), currentStoreId: 'movefree', months: {} };
                 oldMonths.forEach(m => {
                     reviewData.months[m.id] = { ...m, createdAt: m.createdAt || new Date().toISOString() };
                 });
                 ensureCurrentMonth();
             } else {
                 reviewData = data.reviewData;
+                if (!reviewData.currentStoreId) reviewData.currentStoreId = 'movefree';
                 ensureCurrentMonth();
             }
+            // 确保旧月份有 stores 结构
+            Object.values(reviewData.months).forEach(m => {
+                if (!m.stores) migrateMonthToStores(m);
+            });
             localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
         }
         renderWeekTasks();
@@ -695,7 +767,7 @@
                 sections.forEach(s => s.classList.remove('active'));
                 document.getElementById(sec).classList.add('active');
                 document.getElementById('pageTitle').textContent = titles[sec].title;
-                const subs = { weekly: '本周打卡（' + getWeekLabel(getCurrentWeekId()) + '）', douyin:titles.douyin.subtitle, review:titles.review.subtitle };
+                const subs = { weekly: '本周打卡（' + getWeekLabel(getCurrentWeekId()) + '）', douyin:titles.douyin.subtitle, review:'每月总结 · ' + (STORES.find(s=>s.id===reviewData.currentStoreId) || STORES[0]).name + ' · 持续优化成长' };
                 document.getElementById('pageSubtitle').textContent = subs[sec];
             });
         });
@@ -896,6 +968,7 @@
     function initReview() {
         ensureCurrentMonth();
         renderMonthSelector();
+        renderStoreTabs();
         loadReviewMonth(reviewData.currentMonthId);
         renderHistoryTable();
     }
@@ -951,18 +1024,21 @@
         if (!m) return;
         reviewData.currentMonthId = monthId;
         renderMonthSelector();
-        document.getElementById('shopGMV').value = m.shopGMV || '';
-        document.getElementById('daboGMV').value = m.daboGMV || '';
-        document.getElementById('daboGSV').value = m.daboGSV || '';
-        document.getElementById('daboGSVRatio').value = m.daboGSVRatio || '';
-        document.getElementById('reviewWins').value = m.wins || '';
-        document.getElementById('reviewIssues').value = m.issues || '';
-        document.getElementById('reviewPlans').value = m.plans || '';
+        renderStoreTabs();
+        if (!m.stores) { migrateMonthToStores(m); }
+        const s = m.stores[reviewData.currentStoreId] || makeEmptyStore();
+        document.getElementById('shopGMV').value = s.shopGMV || '';
+        document.getElementById('daboGMV').value = s.daboGMV || '';
+        document.getElementById('daboGSV').value = s.daboGSV || '';
+        document.getElementById('daboGSVRatio').value = s.daboGSVRatio || '';
+        document.getElementById('reviewWins').value = s.wins || '';
+        document.getElementById('reviewIssues').value = s.issues || '';
+        document.getElementById('reviewPlans').value = s.plans || '';
         // TOP5
         const tbody = document.getElementById('top5Body');
         tbody.innerHTML = '';
         for (let i = 0; i < 5; i++) {
-            const t = m.top5[i] || { name:'', gmv:'', gmvRatio:'' };
+            const t = s.top5[i] || { name:'', gmv:'', gmvRatio:'' };
             const tr = document.createElement('tr');
             tr.innerHTML = '<td>' + (i+1) + '</td>' +
                 '<td><input type="text" value="' + (t.name||'') + '" placeholder="达人名字" oninput="saveTop5Field(' + i + ',\'name\',this.value)"></td>' +
@@ -974,7 +1050,7 @@
         const matBody = document.getElementById('top5MatBody');
         matBody.innerHTML = '';
         for (let i = 0; i < 5; i++) {
-            const t = (m.top5Mat && m.top5Mat[i]) || { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
+            const t = (s.top5Mat && s.top5Mat[i]) || { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
             const ratio = (parseFloat(t.gmv) && parseFloat(t.liveGmv)) ? ((parseFloat(t.gmv) / parseFloat(t.liveGmv)) * 100).toFixed(1) + '%' : '-';
             const ratioClass = ratio === '-' ? 'calc-cell zero' : 'calc-cell';
             const tr = document.createElement('tr');
@@ -991,31 +1067,31 @@
     }
 
     function saveReviewField(field, value) {
-        const m = getCurrentMonth();
-        if (!m) return;
-        m[field] = value;
+        const s = getCurrentStore();
+        if (!s) return;
+        s[field] = value;
         saveLocal();
         scheduleCloudSync();
     }
 
     function saveTop5Field(index, field, value) {
-        const m = getCurrentMonth();
-        if (!m) return;
-        if (!m.top5[index]) m.top5[index] = { name:'', gmv:'', gmvRatio:'' };
-        m.top5[index][field] = value;
+        const s = getCurrentStore();
+        if (!s) return;
+        if (!s.top5[index]) s.top5[index] = { name:'', gmv:'', gmvRatio:'' };
+        s.top5[index][field] = value;
         saveLocal();
         scheduleCloudSync();
     }
 
     function saveTop5MatField(index, field, value) {
-        const m = getCurrentMonth();
-        if (!m) return;
-        if (!m.top5Mat) m.top5Mat = Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' }));
-        if (!m.top5Mat[index]) m.top5Mat[index] = { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
-        m.top5Mat[index][field] = value;
+        const s = getCurrentStore();
+        if (!s) return;
+        if (!s.top5Mat) s.top5Mat = Array.from({length:5}, () => ({ material:'', talent:'', gmv:'', liveGmv:'', roi:'' }));
+        if (!s.top5Mat[index]) s.top5Mat[index] = { material:'', talent:'', gmv:'', liveGmv:'', roi:'' };
+        s.top5Mat[index][field] = value;
         if (field === 'gmv' || field === 'liveGmv') {
-            const gmv = parseFloat(m.top5Mat[index].gmv) || 0;
-            const liveGmv = parseFloat(m.top5Mat[index].liveGmv) || 0;
+            const gmv = parseFloat(s.top5Mat[index].gmv) || 0;
+            const liveGmv = parseFloat(s.top5Mat[index].liveGmv) || 0;
             const cell = document.getElementById('matRatio-' + index);
             if (cell) {
                 if (gmv > 0 && liveGmv > 0) {
@@ -1043,18 +1119,18 @@
     }
 
     function updateReviewCalc() {
-        const m = getCurrentMonth();
-        if (!m) return;
-        const top5GMV = m.top5.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
-        const daboGMV = parseFloat(m.daboGMV) || 0;
-        const shopGMV = parseFloat(m.shopGMV) || 0;
+        const s = getCurrentStore();
+        if (!s) return;
+        const top5GMV = s.top5.reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
+        const daboGMV = parseFloat(s.daboGMV) || 0;
+        const shopGMV = parseFloat(s.shopGMV) || 0;
         document.getElementById('calcTop5Total').textContent = fmtMoney(top5GMV);
         document.getElementById('calcTop5Avg').textContent = fmtMoney(top5GMV / 5);
         document.getElementById('calcTop5Ratio').textContent = daboGMV > 0 ? fmtPct((top5GMV / daboGMV) * 100) : '0%';
         document.getElementById('calcDaboShopRatio').textContent = shopGMV > 0 ? fmtPct((daboGMV / shopGMV) * 100) : '0%';
-        if (m.top5Mat) {
-            const matGMV = m.top5Mat.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
-            const ratios = m.top5Mat.filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0)
+        if (s.top5Mat) {
+            const matGMV = s.top5Mat.reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
+            const ratios = s.top5Mat.filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0)
                                     .map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
             const avgRatio = ratios.length > 0 ? (ratios.reduce((s, r) => s + r, 0) / ratios.length * 100) : 0;
             const elMatTotal = document.getElementById('calcMatTotal');
@@ -1068,31 +1144,51 @@
         const card = document.getElementById('historyCard');
         const table = document.getElementById('historyTable');
         const pastIds = getPastMonths();
-        if (pastIds.length === 0) { card.style.display = 'none'; return; }
+        const allIds = [reviewData.currentMonthId].concat(pastIds);
+        if (allIds.length === 0) { card.style.display = 'none'; return; }
         card.style.display = 'block';
-        let html = '<thead><tr><th>月份</th><th>店铺总GMV</th><th>达播总GMV</th><th>达播总GSV</th><th>GSV费比</th><th>TOP5达人GMV</th><th>TOP5占达播比</th><th>TOP5素材GMV</th><th>素材平均产出占比</th></tr></thead><tbody>';
-        pastIds.forEach(id => {
-            const m = reviewData.months[id];
+        let html = '<thead><tr><th>月份</th><th>店铺</th><th>店铺总GMV</th><th>达播总GMV</th><th>达播总GSV</th><th>GSV费比</th><th>TOP5达人GMV</th><th>TOP5占达播比</th><th>TOP5素材GMV</th><th>素材平均产出占比</th></tr></thead><tbody>';
+        allIds.forEach(monthId => {
+            const m = reviewData.months[monthId];
             if (!m) return;
-            const top5GMV = m.top5.reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
-            const daboGMV = parseFloat(m.daboGMV) || 0;
-            const top5Ratio = daboGMV > 0 ? ((top5GMV / daboGMV) * 100).toFixed(1) + '%' : '-';
-            const matGMV = (m.top5Mat || []).reduce((s, t) => s + (parseFloat(t.gmv) || 0), 0);
-            const matRatios = (m.top5Mat || []).filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0).map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
-            const matAvgRatio = matRatios.length > 0 ? (matRatios.reduce((s, r) => s + r, 0) / matRatios.length * 100).toFixed(1) + '%' : '-';
-            html += '<tr style="cursor:pointer;" onclick="switchReviewMonth(\'' + id + '\');document.querySelector(\'.nav-item[data-section=review]\').click();">' +
-                '<td>' + m.label + '</td>' +
-                '<td>' + fmtMoney(m.shopGMV) + '</td>' +
-                '<td>' + fmtMoney(m.daboGMV) + '</td>' +
-                '<td>' + fmtMoney(m.daboGSV) + '</td>' +
-                '<td>' + (m.daboGSVRatio ? m.daboGSVRatio + '%' : '-') + '</td>' +
-                '<td>' + fmtMoney(top5GMV) + '</td>' +
-                '<td>' + top5Ratio + '</td>' +
-                '<td>' + fmtMoney(matGMV) + '</td>' +
-                '<td>' + matAvgRatio + '</td></tr>';
+            if (!m.stores) { migrateMonthToStores(m); }
+            STORES.forEach(store => {
+                const s = m.stores[store.id];
+                if (!s) return;
+                const top5GMV = (s.top5 || []).reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
+                const daboGMV = parseFloat(s.daboGMV) || 0;
+                const top5Ratio = daboGMV > 0 ? ((top5GMV / daboGMV) * 100).toFixed(1) + '%' : '-';
+                const matGMV = (s.top5Mat || []).reduce((sum, t) => sum + (parseFloat(t.gmv) || 0), 0);
+                const matRatios = (s.top5Mat || []).filter(t => parseFloat(t.gmv) > 0 && parseFloat(t.liveGmv) > 0).map(t => parseFloat(t.gmv) / parseFloat(t.liveGmv));
+                const matAvgRatio = matRatios.length > 0 ? (matRatios.reduce((sum, r) => sum + r, 0) / matRatios.length * 100).toFixed(1) + '%' : '-';
+                const isCurrent = (monthId === reviewData.currentMonthId && store.id === reviewData.currentStoreId);
+                html += '<tr style="' + (isCurrent ? 'background:var(--accent-light);' : '') + 'cursor:pointer;" onclick="switchReviewMonth(\'' + monthId + '\');switchStore(\'' + store.id + '\');document.querySelector(\'.nav-item[data-section=review]\').click();">' +
+                    '<td>' + m.label + '</td>' +
+                    '<td>' + store.emoji + ' ' + store.shortName + '</td>' +
+                    '<td>' + fmtMoney(s.shopGMV) + '</td>' +
+                    '<td>' + fmtMoney(s.daboGMV) + '</td>' +
+                    '<td>' + fmtMoney(s.daboGSV) + '</td>' +
+                    '<td>' + (s.daboGSVRatio ? s.daboGSVRatio + '%' : '-') + '</td>' +
+                    '<td>' + fmtMoney(top5GMV) + '</td>' +
+                    '<td>' + top5Ratio + '</td>' +
+                    '<td>' + fmtMoney(matGMV) + '</td>' +
+                    '<td>' + matAvgRatio + '</td></tr>';
+            });
         });
         html += '</tbody>';
         table.innerHTML = html;
+    }
+
+    function renderStoreTabs() {
+        const container = document.getElementById('storeTabs');
+        container.innerHTML = '';
+        STORES.forEach(s => {
+            const btn = document.createElement('button');
+            btn.className = 'store-tab' + (s.id === reviewData.currentStoreId ? ' active' : '');
+            btn.textContent = s.emoji + ' ' + s.shortName;
+            btn.onclick = function() { switchStore(s.id); };
+            container.appendChild(btn);
+        });
     }
 
     function saveReviewAll() {
