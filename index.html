@@ -529,12 +529,26 @@
                 };
             }
             weeklyData.currentWeekId = currentId;
+            mergeMissingDefaults();
             saveLocal();
         }
     }
     function saveLocal() {
         localStorage.setItem('beatrice_weekly_data', JSON.stringify(weeklyData));
         localStorage.setItem('beatrice_review_data', JSON.stringify(reviewData));
+    }
+    function mergeMissingDefaults() {
+        // 把 defaultWeekTasks 里缺失的默认任务补到当前周
+        const week = getCurrentWeek();
+        const existingIds = new Set(week.tasks.map(t => t.id));
+        let added = false;
+        for (const dt of defaultWeekTasks) {
+            if (!existingIds.has(dt.id)) {
+                week.tasks.push({ ...JSON.parse(JSON.stringify(dt)), id: dt.id, days: [false,false,false,false,false,false,false] });
+                added = true;
+            }
+        }
+        if (added) saveLocal();
     }
 
     // ===== 初始化 =====
@@ -547,6 +561,7 @@
             weeklyData = JSON.parse(savedWeekly);
             verifyCurrentWeek();
             ensureCurrentWeek();
+            mergeMissingDefaults();
         } else {
             // 尝试迁移旧格式
             const oldTasks = localStorage.getItem('beatrice_week_tasks');
