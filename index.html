@@ -442,7 +442,9 @@
         { id:1, text:'多邻国英语', note:'每日打卡 · 碎片时间目标：15分钟 → 30分钟（独自碎片时间）', freq:7, tag:'study', tagText:'学习', days:[false,false,false,false,false,false,false] },
         { id:2, text:'网球训练', note:'每周2次 · 保持体能与协调性', freq:2, tag:'sport', tagText:'运动', days:[false,false,false,false,false,false,false] },
         { id:3, text:'普拉提课', note:'每周2次 · 核心力量 + 体态调整', freq:2, tag:'sport', tagText:'运动', days:[false,false,false,false,false,false,false] },
-        { id:4, text:'肩背训练', note:'每日早晨或下班时间 · 改善体态，缓解久坐疲劳', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] }
+        { id:4, text:'肩背训练', note:'每日早晨或下班时间 · 改善体态，缓解久坐疲劳', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] },
+        { id:5, text:'地诺孕素', note:'每日服用 · 遵医嘱按时服药', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] },
+        { id:6, text:'磷虾油', note:'每日服用 · 补充Omega-3', freq:7, tag:'health', tagText:'健康', days:[false,false,false,false,false,false,false] }
     ];
 
     // ===== 周管理 =====
@@ -646,9 +648,14 @@
     function addWeekTask() {
         const input = document.getElementById('newTaskInput');
         const freq = document.getElementById('newTaskFreq');
-        if (!input.value.trim()) return;
-        getCurrentWeek().tasks.push({ id:Date.now(), text:input.value.trim(), note:`每周${freq.value}次 · 自定义任务`, freq:parseInt(freq.value), tag:'work', tagText:'待办', days:[false,false,false,false,false,false,false] });
+        const text = (input.value || '').trim();
+        if (!text) return;
+        const week = getCurrentWeek();
+        if (!week || !week.tasks) { console.error('addWeekTask: invalid week object'); return; }
+        week.tasks.push({ id:Date.now(), text:text, note:'每周' + freq.value + '次 · 自定义任务', freq:parseInt(freq.value), tag:'work', tagText:'待办', days:[false,false,false,false,false,false,false] });
         input.value = '';
+        saveLocal();
+        scheduleCloudSync();
         renderWeekTasks();
     }
     function deleteWeekTask(id) {
